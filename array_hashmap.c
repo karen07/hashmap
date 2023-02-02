@@ -14,8 +14,10 @@ const array_hashmap_t* init_array_hashmap(int32_t map_size, double max_load, int
     map_struct->map_size = map_size;
     map_struct->max_load = max_load;
     map_struct->type_size = type_size + sizeof(array_hashmap_elem_t);
-    map_struct->hash_func = hash_func;
-    map_struct->cmp_func = cmp_func;
+    for (operations_t i = add; i <= del; i++) {
+        map_struct->hash_func[i] = hash_func;
+        map_struct->cmp_func[i] = cmp_func;
+    }
     map_struct->now_in_map = 0;
     map_struct->iter_flag = 0;
 
@@ -39,6 +41,32 @@ const array_hashmap_t* init_array_hashmap(int32_t map_size, double max_load, int
     return map_struct;
 }
 
+void array_hashmap_set_find_funcs(const array_hashmap_t* map_struct_c, uint32_t (*hash_func)(const void*), int32_t (*cmp_func)(const void*, const void*))
+{
+    array_hashmap_t* map_struct = (array_hashmap_t*)map_struct_c;
+
+    if (map_struct == NULL || hash_func == NULL || cmp_func == NULL) {
+        return;
+    }
+
+    operations_t find_val = find;
+    map_struct->hash_func[find_val] = hash_func;
+    map_struct->cmp_func[find_val] = cmp_func;
+}
+
+void array_hashmap_set_del_funcs(const array_hashmap_t* map_struct_c, uint32_t (*hash_func)(const void*), int32_t (*cmp_func)(const void*, const void*))
+{
+    array_hashmap_t* map_struct = (array_hashmap_t*)map_struct_c;
+
+    if (map_struct == NULL || hash_func == NULL || cmp_func == NULL) {
+        return;
+    }
+
+    operations_t del_val = del;
+    map_struct->hash_func[del_val] = hash_func;
+    map_struct->cmp_func[del_val] = cmp_func;
+}
+
 int32_t array_hashmap_get_size(const array_hashmap_t* map_struct)
 {
     if (map_struct == NULL) {
@@ -50,7 +78,7 @@ int32_t array_hashmap_get_size(const array_hashmap_t* map_struct)
 
 int32_t array_hashmap_operations(array_hashmap_t* map_struct, const void* in_elem, void* out_elem, operations_t operation)
 {
-    next_val_t in_elem_hash = map_struct->hash_func(in_elem) % map_struct->map_size;
+    next_val_t in_elem_hash = map_struct->hash_func[operation](in_elem) % map_struct->map_size;
     array_hashmap_elem_t* pos_elem = (array_hashmap_elem_t*)&map_struct->map[in_elem_hash * map_struct->type_size];
 
     if (pos_elem->next == empty) {
@@ -69,14 +97,15 @@ int32_t array_hashmap_operations(array_hashmap_t* map_struct, const void* in_ele
             return -1;
         }
     } else {
-        next_val_t pos_elem_hash = map_struct->hash_func(&pos_elem->data) % map_struct->map_size;
+        operations_t add_val = add;
+        next_val_t pos_elem_hash = map_struct->hash_func[add_val](&pos_elem->data) % map_struct->map_size;
 
         if (pos_elem_hash == in_elem_hash) {
             next_val_t prev_elem_hash = alone;
             next_val_t collision_elem_hash = in_elem_hash;
             while (collision_elem_hash != alone) {
                 array_hashmap_elem_t* collision_elem = (array_hashmap_elem_t*)&map_struct->map[collision_elem_hash * map_struct->type_size];
-                if (map_struct->cmp_func(in_elem, &collision_elem->data)) {
+                if (map_struct->cmp_func[operation](in_elem, &collision_elem->data)) {
                     if (out_elem) {
                         memcpy(out_elem, &collision_elem->data, map_struct->type_size - sizeof(array_hashmap_elem_t));
                     }
@@ -259,7 +288,8 @@ int32_t array_hashmap_del_elem_by_func(const array_hashmap_t* map_struct_c, int3
             continue;
         }
 
-        next_val_t elem_hash = map_struct->hash_func(&elem->data) % map_struct->map_size;
+        operations_t del_val = del;
+        next_val_t elem_hash = map_struct->hash_func[del_val](&elem->data) % map_struct->map_size;
         if (elem_hash != i) {
             continue;
         }
@@ -316,7 +346,7 @@ const array_hashmap_iter_t* array_hashmap_get_iter(const array_hashmap_t* map_st
 
     pthread_rwlock_wrlock(&map_struct->rwlock);
 
-    map_struct->iter_flag = 1;
+    map_struct->iter_flag++;
 
     pthread_rwlock_unlock(&map_struct->rwlock);
 
@@ -357,7 +387,7 @@ void array_hashmap_del_iter(const array_hashmap_iter_t* iter_c)
 
     pthread_rwlock_wrlock(&iter->map_struct->rwlock);
 
-    iter->map_struct->iter_flag = 0;
+    iter->map_struct->iter_flag--;
 
     pthread_rwlock_unlock(&iter->map_struct->rwlock);
 
