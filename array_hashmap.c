@@ -14,7 +14,7 @@ const array_hashmap_t* init_array_hashmap(int32_t map_size, double max_load, int
     map_struct->map_size = map_size;
     map_struct->max_load = max_load;
     map_struct->type_size = type_size + sizeof(array_hashmap_elem_t);
-    for (operations_t i = add; i <= del; i++) {
+    for (operations_t i = hashmap_add; i <= hashmap_del; i++) {
         map_struct->hash_func[i] = hash_func;
         map_struct->cmp_func[i] = cmp_func;
     }
@@ -35,7 +35,7 @@ const array_hashmap_t* init_array_hashmap(int32_t map_size, double max_load, int
 
     for (int32_t i = 0; i < map_struct->map_size; i++) {
         array_hashmap_elem_t* elem = (array_hashmap_elem_t*)&map_struct->map[i * map_struct->type_size];
-        elem->next = empty;
+        elem->next = hashmap_empty;
     }
 
     return map_struct;
@@ -49,8 +49,8 @@ void array_hashmap_set_find_funcs(const array_hashmap_t* map_struct_c, uint32_t 
         return;
     }
 
-    map_struct->hash_func[find] = hash_func;
-    map_struct->cmp_func[find] = cmp_func;
+    map_struct->hash_func[hashmap_find] = hash_func;
+    map_struct->cmp_func[hashmap_find] = cmp_func;
 }
 
 void array_hashmap_set_del_funcs(const array_hashmap_t* map_struct_c, uint32_t (*hash_func)(const void*), int32_t (*cmp_func)(const void*, const void*))
@@ -61,14 +61,14 @@ void array_hashmap_set_del_funcs(const array_hashmap_t* map_struct_c, uint32_t (
         return;
     }
 
-    map_struct->hash_func[del] = hash_func;
-    map_struct->cmp_func[del] = cmp_func;
+    map_struct->hash_func[hashmap_del] = hash_func;
+    map_struct->cmp_func[hashmap_del] = cmp_func;
 }
 
 int32_t array_hashmap_get_size(const array_hashmap_t* map_struct)
 {
     if (map_struct == NULL) {
-        return -1;
+        return hashmap_null_point;
     }
 
     return map_struct->now_in_map;
@@ -79,63 +79,67 @@ int32_t array_hashmap_operations(array_hashmap_t* map_struct, const void* in_ele
     next_val_t in_elem_hash = map_struct->hash_func[operation](in_elem) % map_struct->map_size;
     array_hashmap_elem_t* pos_elem = (array_hashmap_elem_t*)&map_struct->map[in_elem_hash * map_struct->type_size];
 
-    if (pos_elem->next == empty) {
-        if (operation == find || operation == del) {
-            return 0;
+    if (pos_elem->next == hashmap_empty) {
+        if (operation == hashmap_find || operation == hashmap_del) {
+            return hashmap_no_elem;
+        }
+
+        if (map_struct->iter_flag) {
+            return hashmap_iter_process;
         }
 
         if (map_struct->now_in_map < map_struct->map_size * map_struct->max_load) {
-            pos_elem->next = alone;
+            pos_elem->next = hashmap_alone;
             memcpy(&pos_elem->data, in_elem, map_struct->type_size - sizeof(array_hashmap_elem_t));
 
             map_struct->now_in_map++;
 
-            return 1;
+            return hashmap_ok;
         } else {
-            return -1;
+            return hashmap_no_free_mem;
         }
     } else {
-        next_val_t pos_elem_hash = map_struct->hash_func[add](&pos_elem->data) % map_struct->map_size;
+        next_val_t pos_elem_hash = map_struct->hash_func[hashmap_add](&pos_elem->data) % map_struct->map_size;
 
         if (pos_elem_hash == in_elem_hash) {
-            next_val_t prev_elem_hash = alone;
+            next_val_t prev_elem_hash = hashmap_alone;
             next_val_t collision_elem_hash = in_elem_hash;
-            while (collision_elem_hash != alone) {
+            while (collision_elem_hash != hashmap_alone) {
                 array_hashmap_elem_t* collision_elem = (array_hashmap_elem_t*)&map_struct->map[collision_elem_hash * map_struct->type_size];
                 if (map_struct->cmp_func[operation](in_elem, &collision_elem->data)) {
                     if (out_elem) {
                         memcpy(out_elem, &collision_elem->data, map_struct->type_size - sizeof(array_hashmap_elem_t));
                     }
-                    if (operation == add) {
-                        return 0;
+                    if (operation == hashmap_add) {
+                        return hashmap_elem_already_in;
                     }
-                    if (operation == replace) {
+                    if (operation == hashmap_replace) {
                         memcpy(&collision_elem->data, in_elem, map_struct->type_size - sizeof(array_hashmap_elem_t));
-                        return 0;
+                        return hashmap_elem_already_in;
                     }
-                    if (operation == find) {
-                        return 1;
+                    if (operation == hashmap_find) {
+                        return hashmap_ok;
                     }
-                    if (operation == del) {
-                        if (collision_elem->next == alone) {
-                            if (prev_elem_hash != alone) {
+                    if (operation == hashmap_del) {
+                        if (collision_elem->next == hashmap_alone) {
+                            if (prev_elem_hash != hashmap_alone) {
                                 array_hashmap_elem_t* prev_elem = (array_hashmap_elem_t*)&map_struct->map[prev_elem_hash * map_struct->type_size];
-                                prev_elem->next = alone;
+                                prev_elem->next = hashmap_alone;
                             }
 
-                            collision_elem->next = empty;
+                            collision_elem->next = hashmap_empty;
                         } else {
                             int32_t next_elem_hash = collision_elem->next;
                             array_hashmap_elem_t* next_elem = (array_hashmap_elem_t*)&map_struct->map[next_elem_hash * map_struct->type_size];
 
                             memcpy(collision_elem, next_elem, map_struct->type_size);
 
-                            next_elem->next = empty;
+                            next_elem->next = hashmap_empty;
                         }
 
                         map_struct->now_in_map--;
 
-                        return 1;
+                        return hashmap_ok;
                     }
                 }
 
@@ -143,19 +147,23 @@ int32_t array_hashmap_operations(array_hashmap_t* map_struct, const void* in_ele
                 collision_elem_hash = collision_elem->next;
             }
 
-            if (operation == find || operation == del) {
-                return 0;
+            if (operation == hashmap_find || operation == hashmap_del) {
+                return hashmap_no_elem;
+            }
+
+            if (map_struct->iter_flag) {
+                return hashmap_iter_process;
             }
 
             if (map_struct->now_in_map < map_struct->map_size * map_struct->max_load) {
                 next_val_t new_elem_hash = prev_elem_hash;
                 array_hashmap_elem_t* new_elem = (array_hashmap_elem_t*)&map_struct->map[new_elem_hash * map_struct->type_size];
-                while (new_elem->next != empty) {
+                while (new_elem->next != hashmap_empty) {
                     new_elem_hash = (new_elem_hash + 1) % map_struct->map_size;
                     new_elem = (array_hashmap_elem_t*)&map_struct->map[new_elem_hash * map_struct->type_size];
                 }
 
-                new_elem->next = alone;
+                new_elem->next = hashmap_alone;
                 memcpy(&new_elem->data, in_elem, map_struct->type_size - sizeof(array_hashmap_elem_t));
 
                 array_hashmap_elem_t* prev_elem = (array_hashmap_elem_t*)&map_struct->map[prev_elem_hash * map_struct->type_size];
@@ -163,13 +171,17 @@ int32_t array_hashmap_operations(array_hashmap_t* map_struct, const void* in_ele
 
                 map_struct->now_in_map++;
 
-                return 1;
+                return hashmap_ok;
             } else {
-                return -1;
+                return hashmap_no_free_mem;
             }
         } else {
-            if (operation == find || operation == del) {
-                return 0;
+            if (operation == hashmap_find || operation == hashmap_del) {
+                return hashmap_no_elem;
+            }
+
+            if (map_struct->iter_flag) {
+                return hashmap_iter_process;
             }
 
             if (map_struct->now_in_map < map_struct->map_size * map_struct->max_load) {
@@ -182,7 +194,7 @@ int32_t array_hashmap_operations(array_hashmap_t* map_struct, const void* in_ele
 
                 next_val_t new_elem_hash = in_elem_hash;
                 array_hashmap_elem_t* new_elem = (array_hashmap_elem_t*)&map_struct->map[new_elem_hash * map_struct->type_size];
-                while (new_elem->next != empty) {
+                while (new_elem->next != hashmap_empty) {
                     new_elem_hash = (new_elem_hash + 1) % map_struct->map_size;
                     new_elem = (array_hashmap_elem_t*)&map_struct->map[new_elem_hash * map_struct->type_size];
                 }
@@ -191,14 +203,14 @@ int32_t array_hashmap_operations(array_hashmap_t* map_struct, const void* in_ele
 
                 collision_elem->next = new_elem_hash;
 
-                pos_elem->next = alone;
+                pos_elem->next = hashmap_alone;
                 memcpy(&pos_elem->data, in_elem, map_struct->type_size - sizeof(array_hashmap_elem_t));
 
                 map_struct->now_in_map++;
 
-                return 1;
+                return hashmap_ok;
             } else {
-                return -1;
+                return hashmap_no_free_mem;
             }
         }
     }
@@ -209,11 +221,11 @@ int32_t array_hashmap_add_elem(const array_hashmap_t* map_struct_c, const void* 
     array_hashmap_t* map_struct = (array_hashmap_t*)map_struct_c;
 
     if (map_struct == NULL || add_elem == NULL) {
-        return -2;
+        return hashmap_null_point;
     }
 
     pthread_rwlock_wrlock(&map_struct->rwlock);
-    int32_t res = array_hashmap_operations(map_struct, add_elem, res_elem, add);
+    int32_t res = array_hashmap_operations(map_struct, add_elem, res_elem, hashmap_add);
     pthread_rwlock_unlock(&map_struct->rwlock);
     return res;
 }
@@ -223,11 +235,11 @@ int32_t array_hashmap_repl_elem(const array_hashmap_t* map_struct_c, const void*
     array_hashmap_t* map_struct = (array_hashmap_t*)map_struct_c;
 
     if (map_struct == NULL || repl_elem == NULL) {
-        return -2;
+        return hashmap_null_point;
     }
 
     pthread_rwlock_wrlock(&map_struct->rwlock);
-    int32_t res = array_hashmap_operations(map_struct, repl_elem, res_elem, replace);
+    int32_t res = array_hashmap_operations(map_struct, repl_elem, res_elem, hashmap_replace);
     pthread_rwlock_unlock(&map_struct->rwlock);
     return res;
 }
@@ -237,11 +249,11 @@ int32_t array_hashmap_find_elem(const array_hashmap_t* map_struct_c, const void*
     array_hashmap_t* map_struct = (array_hashmap_t*)map_struct_c;
 
     if (map_struct == NULL || find_elem == NULL) {
-        return -2;
+        return hashmap_null_point;
     }
 
     pthread_rwlock_rdlock(&map_struct->rwlock);
-    int32_t res = array_hashmap_operations(map_struct, find_elem, res_elem, find);
+    int32_t res = array_hashmap_operations(map_struct, find_elem, res_elem, hashmap_find);
     pthread_rwlock_unlock(&map_struct->rwlock);
     return res;
 }
@@ -251,15 +263,11 @@ int32_t array_hashmap_del_elem(const array_hashmap_t* map_struct_c, const void* 
     array_hashmap_t* map_struct = (array_hashmap_t*)map_struct_c;
 
     if (map_struct == NULL || del_elem == NULL) {
-        return -2;
-    }
-
-    if (map_struct->iter_flag) {
-        return -1;
+        return hashmap_null_point;
     }
 
     pthread_rwlock_wrlock(&map_struct->rwlock);
-    int32_t res = array_hashmap_operations(map_struct, del_elem, res_elem, del);
+    int32_t res = array_hashmap_operations(map_struct, del_elem, res_elem, hashmap_del);
     pthread_rwlock_unlock(&map_struct->rwlock);
     return res;
 }
@@ -269,11 +277,11 @@ int32_t array_hashmap_del_elem_by_func(const array_hashmap_t* map_struct_c, int3
     array_hashmap_t* map_struct = (array_hashmap_t*)map_struct_c;
 
     if (map_struct == NULL || decide == NULL) {
-        return 0;
+        return hashmap_null_point;
     }
 
     if (map_struct->iter_flag) {
-        return 0;
+        return hashmap_iter_process;
     }
 
     pthread_rwlock_wrlock(&map_struct->rwlock);
@@ -281,35 +289,35 @@ int32_t array_hashmap_del_elem_by_func(const array_hashmap_t* map_struct_c, int3
     int32_t del_count = 0;
     for (int32_t i = 0; i < map_struct->map_size; i++) {
         array_hashmap_elem_t* elem = (array_hashmap_elem_t*)&map_struct->map[i * map_struct->type_size];
-        if (elem->next == empty) {
+        if (elem->next == hashmap_empty) {
             continue;
         }
 
-        next_val_t elem_hash = map_struct->hash_func[add](&elem->data) % map_struct->map_size;
+        next_val_t elem_hash = map_struct->hash_func[hashmap_add](&elem->data) % map_struct->map_size;
         if (elem_hash != i) {
             continue;
         }
 
-        next_val_t prev_elem_hash = alone;
+        next_val_t prev_elem_hash = hashmap_alone;
         next_val_t collision_elem_hash = elem_hash;
-        while (collision_elem_hash != alone) {
+        while (collision_elem_hash != hashmap_alone) {
             array_hashmap_elem_t* collision_elem = (array_hashmap_elem_t*)&map_struct->map[collision_elem_hash * map_struct->type_size];
             if (decide(&collision_elem->data)) {
-                if (collision_elem->next == alone) {
-                    if (prev_elem_hash != alone) {
+                if (collision_elem->next == hashmap_alone) {
+                    if (prev_elem_hash != hashmap_alone) {
                         array_hashmap_elem_t* prev_elem = (array_hashmap_elem_t*)&map_struct->map[prev_elem_hash * map_struct->type_size];
-                        prev_elem->next = alone;
+                        prev_elem->next = hashmap_alone;
                     }
 
-                    collision_elem->next = empty;
-                    collision_elem_hash = alone;
+                    collision_elem->next = hashmap_empty;
+                    collision_elem_hash = hashmap_alone;
                 } else {
                     next_val_t next_elem_hash = collision_elem->next;
                     array_hashmap_elem_t* next_elem = (array_hashmap_elem_t*)&map_struct->map[next_elem_hash * map_struct->type_size];
 
                     memcpy(collision_elem, next_elem, map_struct->type_size);
 
-                    next_elem->next = empty;
+                    next_elem->next = hashmap_empty;
                 }
 
                 del_count++;
@@ -337,7 +345,7 @@ const array_hashmap_iter_t* array_hashmap_get_iter(const array_hashmap_t* map_st
         return NULL;
     }
 
-    iter->next = alone;
+    iter->next = hashmap_alone;
     iter->map_struct = map_struct;
 
     pthread_rwlock_wrlock(&map_struct->rwlock);
@@ -354,14 +362,14 @@ int32_t array_hashmap_next(const array_hashmap_iter_t* iter_c, void* next_elem)
     array_hashmap_iter_t* iter = (array_hashmap_iter_t*)iter_c;
 
     if (iter == NULL || next_elem == NULL) {
-        return 0;
+        return hashmap_null_point;
     }
 
     pthread_rwlock_rdlock(&iter->map_struct->rwlock);
 
     for (int32_t i = iter->next + 1; i < iter->map_struct->map_size; i++) {
         array_hashmap_elem_t* elem = (array_hashmap_elem_t*)&iter->map_struct->map[i * iter->map_struct->type_size];
-        if (elem->next != empty) {
+        if (elem->next != hashmap_empty) {
             iter->next = i;
             memcpy(next_elem, &elem->data, iter->map_struct->type_size - sizeof(array_hashmap_elem_t));
             pthread_rwlock_unlock(&iter->map_struct->rwlock);

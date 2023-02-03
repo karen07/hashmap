@@ -114,7 +114,7 @@ int main(void)
         printf("\nFind instagram.com\n");
         url_data_t find_res_elem;
         int32_t find_res = array_hashmap_find_elem(urls_map_struct, "instagram.com", &find_res_elem);
-        if (find_res) {
+        if (find_res == hashmap_ok) {
             printf("%s %d\n", &urls[find_res_elem.url_pos], find_res_elem.time);
         } else {
             printf("instagram.com not in map\n");
@@ -130,7 +130,7 @@ int main(void)
 
         printf("\nFind instagram.com\n");
         find_res = array_hashmap_find_elem(urls_map_struct, "instagram.com", &find_res_elem);
-        if (find_res) {
+        if (find_res == hashmap_ok) {
             printf("%s %d\n", &urls[find_res_elem.url_pos], find_res_elem.time);
         } else {
             printf("instagram.com not in map\n");
@@ -145,7 +145,7 @@ int main(void)
 
         printf("\nFind instagram.com\n");
         find_res = array_hashmap_find_elem(urls_map_struct, "instagram.com", &find_res_elem);
-        if (find_res) {
+        if (find_res == hashmap_ok) {
             printf("%s %d\n", &urls[find_res_elem.url_pos], find_res_elem.time);
         } else {
             printf("instagram.com not in map\n");

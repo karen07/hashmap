@@ -7,16 +7,25 @@
 #define __ARRAY_HASHMAP__
 
 typedef enum operations {
-    add,
-    find,
-    replace,
-    del
+    hashmap_add,
+    hashmap_find,
+    hashmap_replace,
+    hashmap_del
 } operations_t;
 
 typedef enum next_val {
-    empty = -2,
-    alone = -1
+    hashmap_empty = -2,
+    hashmap_alone = -1
 } next_val_t;
+
+typedef enum operations_val {
+    hashmap_ok = 1,
+    hashmap_no_elem = -1,
+    hashmap_iter_process = -2,
+    hashmap_no_free_mem = -3,
+    hashmap_elem_already_in = -4,
+    hashmap_null_point = -5
+} operations_val_t;
 
 typedef struct array_hashmap {
     char* map;
