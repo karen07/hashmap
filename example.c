@@ -60,12 +60,8 @@ int main(void)
 {
     FILE* urls_fd = fopen("block_urls_lines", "r");
     if (urls_fd == NULL) {
-        system("curl https://antifilter.download/list/domains.lst 2>/dev/null > block_urls_lines");
-        urls_fd = fopen("block_urls_lines", "r");
-        if (urls_fd == NULL) {
-            printf("Can't open url file\n");
-            exit(EXIT_FAILURE);
-        }
+        printf("Can't open url file\n");
+        exit(EXIT_FAILURE);
     }
 
     fseek(urls_fd, 0, SEEK_END);
