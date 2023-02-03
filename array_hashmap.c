@@ -49,9 +49,8 @@ void array_hashmap_set_find_funcs(const array_hashmap_t* map_struct_c, uint32_t 
         return;
     }
 
-    operations_t find_val = find;
-    map_struct->hash_func[find_val] = hash_func;
-    map_struct->cmp_func[find_val] = cmp_func;
+    map_struct->hash_func[find] = hash_func;
+    map_struct->cmp_func[find] = cmp_func;
 }
 
 void array_hashmap_set_del_funcs(const array_hashmap_t* map_struct_c, uint32_t (*hash_func)(const void*), int32_t (*cmp_func)(const void*, const void*))
@@ -62,9 +61,8 @@ void array_hashmap_set_del_funcs(const array_hashmap_t* map_struct_c, uint32_t (
         return;
     }
 
-    operations_t del_val = del;
-    map_struct->hash_func[del_val] = hash_func;
-    map_struct->cmp_func[del_val] = cmp_func;
+    map_struct->hash_func[del] = hash_func;
+    map_struct->cmp_func[del] = cmp_func;
 }
 
 int32_t array_hashmap_get_size(const array_hashmap_t* map_struct)
@@ -97,8 +95,7 @@ int32_t array_hashmap_operations(array_hashmap_t* map_struct, const void* in_ele
             return -1;
         }
     } else {
-        operations_t add_val = add;
-        next_val_t pos_elem_hash = map_struct->hash_func[add_val](&pos_elem->data) % map_struct->map_size;
+        next_val_t pos_elem_hash = map_struct->hash_func[add](&pos_elem->data) % map_struct->map_size;
 
         if (pos_elem_hash == in_elem_hash) {
             next_val_t prev_elem_hash = alone;
@@ -288,8 +285,7 @@ int32_t array_hashmap_del_elem_by_func(const array_hashmap_t* map_struct_c, int3
             continue;
         }
 
-        operations_t del_val = del;
-        next_val_t elem_hash = map_struct->hash_func[del_val](&elem->data) % map_struct->map_size;
+        next_val_t elem_hash = map_struct->hash_func[add](&elem->data) % map_struct->map_size;
         if (elem_hash != i) {
             continue;
         }
