@@ -37,6 +37,7 @@ typedef struct array_hashmap {
     int32_t (*cmp_func[4])(const void*, const void*);
     int32_t iter_flag;
     pthread_rwlock_t rwlock;
+    pthread_rwlock_t iterlock;
 } array_hashmap_t;
 
 typedef struct array_hashmap_elem {
@@ -59,6 +60,12 @@ int32_t array_hashmap_add_elem(const array_hashmap_t* map_struct_c, const void* 
 int32_t array_hashmap_repl_elem(const array_hashmap_t* map_struct_c, const void* repl_elem, void* res_elem);
 int32_t array_hashmap_find_elem(const array_hashmap_t* map_struct_c, const void* find_elem, void* res_elem);
 int32_t array_hashmap_del_elem(const array_hashmap_t* map_struct_c, const void* del_elem, void* res_elem);
+
+int32_t array_hashmap_add_elem_wait(const array_hashmap_t* map_struct_c, const void* add_elem, void* res_elem);
+int32_t array_hashmap_repl_elem_wait(const array_hashmap_t* map_struct_c, const void* repl_elem, void* res_elem);
+int32_t array_hashmap_find_elem_wait(const array_hashmap_t* map_struct_c, const void* find_elem, void* res_elem);
+int32_t array_hashmap_del_elem_wait(const array_hashmap_t* map_struct_c, const void* del_elem, void* res_elem);
+
 int32_t array_hashmap_del_elem_by_func(const array_hashmap_t* map_struct_c, int32_t (*)(const void*));
 
 const array_hashmap_iter_t* array_hashmap_get_iter(const array_hashmap_t* map_struct_c);
