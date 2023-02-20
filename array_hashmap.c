@@ -281,11 +281,13 @@ int32_t array_hashmap_add_elem_wait(const array_hashmap_t* map_struct_c, const v
     }
 
     pthread_rwlock_wrlock(&map_struct->iterlock);
-    pthread_rwlock_unlock(&map_struct->iterlock);
 
     pthread_rwlock_wrlock(&map_struct->rwlock);
     int32_t res = array_hashmap_operations(map_struct, add_elem, res_elem, hashmap_add);
     pthread_rwlock_unlock(&map_struct->rwlock);
+
+    pthread_rwlock_unlock(&map_struct->iterlock);
+
     return res;
 }
 
@@ -298,11 +300,13 @@ int32_t array_hashmap_repl_elem_wait(const array_hashmap_t* map_struct_c, const 
     }
 
     pthread_rwlock_wrlock(&map_struct->iterlock);
-    pthread_rwlock_unlock(&map_struct->iterlock);
 
     pthread_rwlock_wrlock(&map_struct->rwlock);
     int32_t res = array_hashmap_operations(map_struct, repl_elem, res_elem, hashmap_replace);
     pthread_rwlock_unlock(&map_struct->rwlock);
+
+    pthread_rwlock_unlock(&map_struct->iterlock);
+
     return res;
 }
 
@@ -315,11 +319,13 @@ int32_t array_hashmap_find_elem_wait(const array_hashmap_t* map_struct_c, const 
     }
 
     pthread_rwlock_wrlock(&map_struct->iterlock);
-    pthread_rwlock_unlock(&map_struct->iterlock);
 
     pthread_rwlock_rdlock(&map_struct->rwlock);
     int32_t res = array_hashmap_operations(map_struct, find_elem, res_elem, hashmap_find);
     pthread_rwlock_unlock(&map_struct->rwlock);
+
+    pthread_rwlock_unlock(&map_struct->iterlock);
+
     return res;
 }
 
@@ -332,11 +338,13 @@ int32_t array_hashmap_del_elem_wait(const array_hashmap_t* map_struct_c, const v
     }
 
     pthread_rwlock_wrlock(&map_struct->iterlock);
-    pthread_rwlock_unlock(&map_struct->iterlock);
 
     pthread_rwlock_wrlock(&map_struct->rwlock);
     int32_t res = array_hashmap_operations(map_struct, del_elem, res_elem, hashmap_del);
     pthread_rwlock_unlock(&map_struct->rwlock);
+
+    pthread_rwlock_unlock(&map_struct->iterlock);
+
     return res;
 }
 
@@ -418,11 +426,13 @@ const array_hashmap_iter_t* array_hashmap_get_iter(const array_hashmap_t* map_st
 
     pthread_rwlock_wrlock(&map_struct->rwlock);
 
+    if (map_struct->iter_flag == 0) {
+        pthread_rwlock_wrlock(&map_struct->iterlock);
+    }
+
     map_struct->iter_flag++;
 
     pthread_rwlock_unlock(&map_struct->rwlock);
-
-    pthread_rwlock_wrlock(&map_struct->iterlock);
 
     return iter;
 }
@@ -463,9 +473,11 @@ void array_hashmap_del_iter(const array_hashmap_iter_t* iter_c)
 
     iter->map_struct->iter_flag--;
 
-    pthread_rwlock_unlock(&iter->map_struct->rwlock);
+    if (map_struct->iter_flag == 0) {
+        pthread_rwlock_unlock(&map_struct->iterlock);
+    }
 
-    pthread_rwlock_unlock(&iter->map_struct->iterlock);
+    pthread_rwlock_unlock(&iter->map_struct->rwlock);
 
     free(iter);
 }
