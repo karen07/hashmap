@@ -37,7 +37,7 @@ const array_hashmap_t* init_array_hashmap(int32_t map_size, double max_load, int
     return map_struct;
 }
 
-void array_hashmap_set_func(const array_hashmap_t* map_struct_c, uint32_t (*add_hash)(const void*), int32_t (*add_cmp)(const void*, const void*), uint32_t (*find_hash)(const void*), int32_t (*find_cmp)(const void*, const void*))
+void array_hashmap_set_func(const array_hashmap_t* map_struct_c, uint32_t(*add_hash)(const void*), int32_t(*add_cmp)(const void*, const void*), uint32_t(*find_hash)(const void*), int32_t(*find_cmp)(const void*, const void*))
 {
     array_hashmap_t* map_struct = (array_hashmap_t*)map_struct_c;
 
@@ -65,7 +65,7 @@ int32_t array_hashmap_get_size(const array_hashmap_t* map_struct)
     return map_struct->now_in_map;
 }
 
-int32_t array_hashmap_add_elem(const array_hashmap_t* map_struct_c, const void* add_elem, void* res_elem, int32_t (*on_collision)(const void*, const void*))
+int32_t array_hashmap_add_elem(const array_hashmap_t* map_struct_c, const void* add_elem, void* res_elem, int32_t(*on_collision)(const void*, const void*))
 {
     array_hashmap_t* map_struct = (array_hashmap_t*)map_struct_c;
 
@@ -291,7 +291,7 @@ int32_t array_hashmap_del_elem(const array_hashmap_t* map_struct_c, const void* 
     return 0;
 }
 
-int32_t array_hashmap_del_elem_by_func(const array_hashmap_t* map_struct_c, int32_t (*decide)(const void*))
+int32_t array_hashmap_del_elem_by_func(const array_hashmap_t* map_struct_c, int32_t(*decide)(const void*))
 {
     array_hashmap_t* map_struct = (array_hashmap_t*)map_struct_c;
 
