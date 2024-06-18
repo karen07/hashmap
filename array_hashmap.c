@@ -25,6 +25,7 @@ const array_hashmap_t* init_array_hashmap(int32_t map_size, double max_load, int
     map_struct->map = map;
 
     if (pthread_rwlock_init(&map_struct->rwlock, NULL)) {
+        free(map);
         free(map_struct);
         return NULL;
     }
@@ -426,7 +427,9 @@ void del_array_hashmap(const array_hashmap_t* map_struct_c)
     pthread_rwlock_wrlock(&map_struct->rwlock);
 
     free(map_struct->map);
-    free(map_struct);
 
     pthread_rwlock_unlock(&map_struct->rwlock);
+
+    pthread_rwlock_destroy(&map_struct->rwlock);
+    free(map_struct);
 }
