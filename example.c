@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-uint32_t djb33_hash(const char* s)
+uint32_t djb33_hash(const char *s)
 {
     uint32_t h = 5381;
     while (*s) {
@@ -12,42 +12,42 @@ uint32_t djb33_hash(const char* s)
     return h;
 }
 
-char* urls;
+char *urls;
 
 typedef struct url_data {
     uint32_t url_pos;
     int32_t time;
 } url_data_t;
 
-uint32_t add_url_hash(const void* void_elem)
+uint32_t add_url_hash(const void *void_elem)
 {
-    const url_data_t* elem = void_elem;
+    const url_data_t *elem = void_elem;
     return djb33_hash(&urls[elem->url_pos]);
 }
 
-int32_t add_url_cmp(const void* void_elem1, const void* void_elem2)
+int32_t add_url_cmp(const void *void_elem1, const void *void_elem2)
 {
-    const url_data_t* elem1 = void_elem1;
-    const url_data_t* elem2 = void_elem2;
+    const url_data_t *elem1 = void_elem1;
+    const url_data_t *elem2 = void_elem2;
 
     return !strcmp(&urls[elem1->url_pos], &urls[elem2->url_pos]);
 }
 
-uint32_t find_url_hash(const void* void_elem)
+uint32_t find_url_hash(const void *void_elem)
 {
-    const char* elem = void_elem;
+    const char *elem = void_elem;
     return djb33_hash(elem);
 }
 
-int32_t find_url_cmp(const void* void_elem1, const void* void_elem2)
+int32_t find_url_cmp(const void *void_elem1, const void *void_elem2)
 {
-    const char* elem1 = void_elem1;
-    const url_data_t* elem2 = void_elem2;
+    const char *elem1 = void_elem1;
+    const url_data_t *elem2 = void_elem2;
 
     return !strcmp(elem1, &urls[elem2->url_pos]);
 }
 
-int32_t url_decide(const void* void_elem)
+int32_t url_decide(const void *void_elem)
 {
     if (!void_elem) {
         return 0;
@@ -56,10 +56,10 @@ int32_t url_decide(const void* void_elem)
     return 1;
 }
 
-int32_t url_on_collision(const void* void_elem1, const void* void_elem2)
+int32_t url_on_collision(const void *void_elem1, const void *void_elem2)
 {
-    const url_data_t* elem1 = void_elem1;
-    const url_data_t* elem2 = void_elem2;
+    const url_data_t *elem1 = void_elem1;
+    const url_data_t *elem2 = void_elem2;
 
     if (elem1->time > elem2->time) {
         return 1;
@@ -70,7 +70,7 @@ int32_t url_on_collision(const void* void_elem1, const void* void_elem2)
 
 int main(void)
 {
-    FILE* urls_fd = fopen("block_urls_lines", "r");
+    FILE *urls_fd = fopen("block_urls_lines", "r");
     if (urls_fd == NULL) {
         system("curl https://antifilter.download/list/domains.lst 2>/dev/null > block_urls_lines");
         urls_fd = fopen("block_urls_lines", "r");
@@ -109,8 +109,10 @@ int main(void)
 
         printf("URLs count %d\n", urls_map_size);
 
-        const array_hashmap_t* urls_map_struct = init_array_hashmap(urls_map_size / 0.8, 0.7, sizeof(url_data_t));
-        array_hashmap_set_func(urls_map_struct, add_url_hash, add_url_cmp, find_url_hash, find_url_cmp);
+        const array_hashmap_t *urls_map_struct =
+            init_array_hashmap(urls_map_size / 0.8, 0.7, sizeof(url_data_t));
+        array_hashmap_set_func(urls_map_struct, add_url_hash, add_url_cmp, find_url_hash,
+                               find_url_cmp);
 
         int32_t url_offset = 0;
         for (int32_t i = 0; i < urls_map_size; i++) {
@@ -131,7 +133,8 @@ int main(void)
         printf("\nFind instagram.com\n");
         find_res = array_hashmap_find_elem(urls_map_struct, "instagram.com", &find_elem);
         if (find_res) {
-            printf("pos %d, str %s, time %d\n", find_elem.url_pos, &urls[find_elem.url_pos], find_elem.time);
+            printf("pos %d, str %s, time %d\n", find_elem.url_pos, &urls[find_elem.url_pos],
+                   find_elem.time);
         } else {
             printf("instagram.com not in map\n");
         }
@@ -142,31 +145,35 @@ int main(void)
         add_elem.time = 600000;
         url_data_t res_elem;
         array_hashmap_add_elem(urls_map_struct, &add_elem, &res_elem, url_on_collision);
-        printf("pos %d, str %s, time %d\n", res_elem.url_pos, &urls[res_elem.url_pos], res_elem.time);
+        printf("pos %d, str %s, time %d\n", res_elem.url_pos, &urls[res_elem.url_pos],
+               res_elem.time);
 
         printf("\nFind instagram.com\n");
         find_res = array_hashmap_find_elem(urls_map_struct, "instagram.com", &find_elem);
         if (find_res) {
-            printf("pos %d, str %s, time %d\n", find_elem.url_pos, &urls[find_elem.url_pos], find_elem.time);
+            printf("pos %d, str %s, time %d\n", find_elem.url_pos, &urls[find_elem.url_pos],
+                   find_elem.time);
         } else {
             printf("instagram.com not in map\n");
         }
 
         printf("\nDel instagram.com\n");
         array_hashmap_del_elem(urls_map_struct, "instagram.com", &res_elem);
-        printf("pos %d, str %s, time %d\n", res_elem.url_pos, &urls[res_elem.url_pos], res_elem.time);
+        printf("pos %d, str %s, time %d\n", res_elem.url_pos, &urls[res_elem.url_pos],
+               res_elem.time);
 
         printf("\nMap size %d\n", array_hashmap_get_size(urls_map_struct));
 
         printf("\nFind instagram.com\n");
         find_res = array_hashmap_find_elem(urls_map_struct, "instagram.com", &find_elem);
         if (find_res) {
-            printf("pos %d, str %s, time %d\n", find_elem.url_pos, &urls[find_elem.url_pos], find_elem.time);
+            printf("pos %d, str %s, time %d\n", find_elem.url_pos, &urls[find_elem.url_pos],
+                   find_elem.time);
         } else {
             printf("instagram.com not in map\n");
         }
 
-        const array_hashmap_iter_t* iter;
+        const array_hashmap_iter_t *iter;
         url_data_t walk_elem;
         int32_t count;
 
