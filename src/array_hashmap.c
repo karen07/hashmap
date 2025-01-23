@@ -37,6 +37,23 @@ array_hashmap_t array_hashmap_init(int32_t map_size, double max_load, int32_t ty
     int32_t i = 0;
 
     hashmap_t *map_struct = NULL;
+
+    if (map_size <= 0) {
+        return NULL;
+    }
+
+    if (type_size <= 0) {
+        return NULL;
+    }
+
+    if (max_load <= 0) {
+        return NULL;
+    }
+
+    if (max_load > 1.0) {
+        return NULL;
+    }
+
     map_struct = malloc(sizeof(hashmap_t));
     if (!map_struct) {
         return NULL;
@@ -114,12 +131,13 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
                                on_already_in_t on_already_in)
 {
     int32_t add_elem_index = 0;
+
+    int32_t check_elem_index = 0;
     elem_t *check_elem = NULL;
     void *check_elem_data = NULL;
 
-    int32_t check_elem_index = 0;
-
     int32_t list_prev_elem_index = 0;
+
     int32_t list_elem_index = 0;
     elem_t *list_elem = NULL;
     void *list_elem_data = NULL;
