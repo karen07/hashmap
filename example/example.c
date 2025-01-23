@@ -8,6 +8,11 @@
 #include <string.h>
 #include <time.h>
 
+typedef struct url_data {
+    uint32_t url_pos;
+    int32_t time;
+} url_data_t;
+
 char *urls;
 
 uint32_t djb33_hash(const char *s)
@@ -20,52 +25,38 @@ uint32_t djb33_hash(const char *s)
     return h;
 }
 
-typedef struct url_data {
-    uint32_t url_pos;
-    int32_t time;
-} url_data_t;
-
-uint32_t add_url_hash(const void *void_elem)
+uint32_t add_url_hash(const void *add_elem_data)
 {
-    const url_data_t *elem = void_elem;
+    const url_data_t *elem = add_elem_data;
     return djb33_hash(&urls[elem->url_pos]);
 }
 
-int32_t add_url_cmp(const void *void_elem1, const void *void_elem2)
+int32_t add_url_cmp(const void *add_elem_data, const void *hashmap_elem_data)
 {
-    const url_data_t *elem1 = void_elem1;
-    const url_data_t *elem2 = void_elem2;
+    const url_data_t *elem1 = add_elem_data;
+    const url_data_t *elem2 = hashmap_elem_data;
 
     return !strcmp(&urls[elem1->url_pos], &urls[elem2->url_pos]);
 }
 
-uint32_t find_url_hash(const void *void_elem)
+uint32_t find_url_hash(const void *find_elem_data)
 {
-    const char *elem = void_elem;
+    const char *elem = find_elem_data;
     return djb33_hash(elem);
 }
 
-int32_t find_url_cmp(const void *void_elem1, const void *void_elem2)
+int32_t find_url_cmp(const void *find_elem_data, const void *hashmap_elem_data)
 {
-    const char *elem1 = void_elem1;
-    const url_data_t *elem2 = void_elem2;
+    const char *elem1 = find_elem_data;
+    const url_data_t *elem2 = hashmap_elem_data;
 
     return !strcmp(elem1, &urls[elem2->url_pos]);
 }
 
-int32_t url_decide(const void *void_elem)
+int32_t url_on_already_in(const void *add_elem_data, const void *hashmap_elem_data)
 {
-    if (!void_elem) {
-        return 0;
-    }
-
-    return 1;
-}
-
-int32_t url_on_collision(const void *void_elem1, const void *void_elem2)
-{
-    const url_data_t *elem1 = void_elem1;
-    const url_data_t *elem2 = void_elem2;
+    const url_data_t *elem1 = add_elem_data;
+    const url_data_t *elem2 = hashmap_elem_data;
 
     if (elem1->time > elem2->time) {
         return 1;
