@@ -120,6 +120,7 @@ int main(void)
     double step = 0;
 
     url_data_t add_elem;
+    int32_t add_res;
 
     url_data_t find_elem;
     int32_t find_res;
@@ -198,7 +199,10 @@ int main(void)
             add_elem.url_pos = url_offsets[i];
             add_elem.time = i;
 
-            array_hashmap_add_elem(urls_map_struct, &add_elem, NULL, NULL);
+            add_res = array_hashmap_add_elem(urls_map_struct, &add_elem, NULL, NULL);
+            if (add_res != array_hashmap_elem_added) {
+                return EXIT_FAILURE;
+            }
         }
 
         gettimeofday(&now_timeval_end, NULL);
@@ -216,9 +220,8 @@ int main(void)
 
         for (i = 0; i < urls_map_size; i++) {
             find_res = array_hashmap_find_elem(urls_map_struct, &urls[url_offsets[i]], &find_elem);
-            if (!find_res) {
-                printf("pos %d, str %s, time %d\n", find_elem.url_pos, &urls[find_elem.url_pos],
-                       find_elem.time);
+            if (find_res != array_hashmap_elem_finded) {
+                return EXIT_FAILURE;
             }
         }
 
@@ -239,9 +242,8 @@ int main(void)
             urls_random[url_offsets[i]] = '&';
             find_res =
                 array_hashmap_find_elem(urls_map_struct, &urls_random[url_offsets[i]], &find_elem);
-            if (find_res) {
-                printf("pos %d, str %s, time %d\n", find_elem.url_pos,
-                       &urls_random[find_elem.url_pos], find_elem.time);
+            if (find_res != array_hashmap_elem_not_finded) {
+                return EXIT_FAILURE;
             }
         }
 
