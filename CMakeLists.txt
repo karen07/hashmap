@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.10)
+add_compile_options(-Wall -Wextra -Werror -Wpedantic -std=c89)
+include_directories(include) 
+add_library(hashmap STATIC src/array_hashmap.c)
+project(example)
+file(GLOB SRC "example/*.c")
+add_executable(example ${SRC})
+target_link_libraries(example hashmap)
