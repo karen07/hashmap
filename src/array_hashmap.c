@@ -29,6 +29,7 @@ typedef struct __attribute__((packed)) elem {
 enum next { elem_empty = -2, elem_last = -1 };
 
 #define get_add_hash(data) (map_struct->add_hash(data) % map_struct->map_size)
+#define get_find_hash(data) (map_struct->find_hash(data) % map_struct->map_size)
 #define get_elem(index) ((elem_t *)&map_struct->map[index * map_struct->elem_size])
 
 array_hashmap_t array_hashmap_init(int32_t map_size, double max_load, int32_t type_size)
@@ -144,6 +145,7 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
 
     int32_t new_elem_index = 0;
     elem_t *new_elem = NULL;
+    void *new_elem_data = NULL;
 
     hashmap_t *map_struct = NULL;
     map_struct = (hashmap_t *)map_struct_c;
@@ -229,7 +231,8 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
                 } while (new_elem->next != elem_empty);
 
                 new_elem->next = elem_last;
-                memcpy(&new_elem->data, add_elem_data, map_struct->data_size);
+                new_elem_data = &new_elem->data;
+                memcpy(new_elem_data, add_elem_data, map_struct->data_size);
                 list_elem->next = new_elem_index;
 
                 map_struct->now_in_map++;
@@ -263,7 +266,7 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
                 list_elem->next = new_elem_index;
 
                 check_elem->next = elem_last;
-                memcpy(&check_elem->data, add_elem_data, map_struct->data_size);
+                memcpy(check_elem_data, add_elem_data, map_struct->data_size);
 
                 map_struct->now_in_map++;
 
@@ -281,17 +284,19 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
     }
 }
 
-int32_t array_hashmap_find_elem(array_hashmap_t map_struct_c, const void *find_elem, void *res_elem)
+int32_t array_hashmap_find_elem(array_hashmap_t map_struct_c, const void *find_elem_data,
+                                void *res_elem_data)
 {
-    int32_t find_elem_hash = 0;
-    elem_t *on_hash_elem = NULL;
+    int32_t find_elem_index = 0;
+    elem_t *find_elem = NULL;
 
-    int32_t collision_chain_hash = 0;
-    elem_t *collision_chain_elem = NULL;
+    int32_t list_elem_index = 0;
+    elem_t *list_elem = NULL;
+    void *list_elem_data = NULL;
 
     hashmap_t *map_struct = NULL;
     map_struct = (hashmap_t *)map_struct_c;
-    if (!map_struct || !find_elem) {
+    if (!map_struct || !find_elem_data) {
         return array_hashmap_empty_args;
     }
 
@@ -303,22 +308,23 @@ int32_t array_hashmap_find_elem(array_hashmap_t map_struct_c, const void *find_e
     pthread_rwlock_rdlock(&map_struct->rwlock);
 #endif
 
-    find_elem_hash = map_struct->find_hash(find_elem) % map_struct->map_size;
-    on_hash_elem = get_elem(find_elem_hash);
+    find_elem_index = get_find_hash(find_elem_data);
+    find_elem = get_elem(find_elem_index);
 
-    if (on_hash_elem->next == elem_empty) {
+    if (find_elem->next == elem_empty) {
 #ifdef THREAD_SAFETY
         pthread_rwlock_unlock(&map_struct->rwlock);
 #endif
         return array_hashmap_elem_not_finded;
     }
 
-    collision_chain_hash = find_elem_hash;
-    while (collision_chain_hash != elem_last) {
-        collision_chain_elem = get_elem(collision_chain_hash);
-        if (map_struct->find_cmp(find_elem, &collision_chain_elem->data)) {
-            if (res_elem) {
-                memcpy(res_elem, &collision_chain_elem->data, map_struct->data_size);
+    list_elem_index = find_elem_index;
+    while (list_elem_index != elem_last) {
+        list_elem = get_elem(list_elem_index);
+        list_elem_data = &list_elem->data;
+        if (map_struct->find_cmp(find_elem_data, list_elem_data)) {
+            if (res_elem_data) {
+                memcpy(res_elem_data, list_elem_data, map_struct->data_size);
             }
 #ifdef THREAD_SAFETY
             pthread_rwlock_unlock(&map_struct->rwlock);
@@ -326,7 +332,7 @@ int32_t array_hashmap_find_elem(array_hashmap_t map_struct_c, const void *find_e
             return array_hashmap_elem_finded;
         }
 
-        collision_chain_hash = collision_chain_elem->next;
+        list_elem_index = list_elem->next;
     }
 
 #ifdef THREAD_SAFETY
