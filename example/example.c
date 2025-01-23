@@ -131,6 +131,11 @@ int main(void)
     uint64_t now_us_start;
     uint64_t now_us_end;
 
+    int32_t add_one_op_time_ns;
+    int32_t find_suc_one_op_time_ns;
+    int32_t find_fail_one_op_time_ns;
+    int32_t fullness;
+
     const array_hashmap_t *urls_map_struct = NULL;
 
     urls_fd = fopen("urls", "r");
@@ -183,12 +188,10 @@ int main(void)
 
     make_random(url_offsets, urls_map_size);
 
-    for (step = 1.00; step > 0.09; step -= 0.01) {
+    for (step = 1.00; step > 0.49; step -= 0.01) {
         urls_map_struct = array_hashmap_init(urls_map_size / step, 1, sizeof(url_data_t));
         array_hashmap_set_func(urls_map_struct, add_url_hash, add_url_cmp, find_url_hash,
                                find_url_cmp);
-
-        printf("%f", step);
 
         /* Новые */
         clean_cache();
@@ -213,7 +216,7 @@ int main(void)
         now_us_start = now_timeval_start.tv_sec * 1000000 + now_timeval_start.tv_usec;
         now_us_end = now_timeval_end.tv_sec * 1000000 + now_timeval_end.tv_usec;
 
-        printf("; %ld", ((now_us_end - now_us_start) * 1000) / urls_map_size);
+        add_one_op_time_ns = ((now_us_end - now_us_start) * 1000) / urls_map_size;
         /* Новые */
 
         /* Всталенные */
@@ -236,7 +239,7 @@ int main(void)
         now_us_start = now_timeval_start.tv_sec * 1000000 + now_timeval_start.tv_usec;
         now_us_end = now_timeval_end.tv_sec * 1000000 + now_timeval_end.tv_usec;
 
-        printf("; %ld", ((now_us_end - now_us_start) * 1000) / urls_map_size);
+        find_suc_one_op_time_ns = ((now_us_end - now_us_start) * 1000) / urls_map_size;
         /* Всталенные */
 
         /* Не всталенные */
@@ -261,12 +264,15 @@ int main(void)
         now_us_start = now_timeval_start.tv_sec * 1000000 + now_timeval_start.tv_usec;
         now_us_end = now_timeval_end.tv_sec * 1000000 + now_timeval_end.tv_usec;
 
-        printf("; %ld", ((now_us_end - now_us_start) * 1000) / urls_map_size);
+        find_fail_one_op_time_ns = ((now_us_end - now_us_start) * 1000) / urls_map_size;
         /* Не всталенные */
 
-        array_hashmap_del(urls_map_struct);
+        fullness = (array_hashmap_get_size(urls_map_struct) / (urls_map_size / step)) * 100;
 
-        printf("\n");
+        printf("%d;%d;%d;%d;\n", fullness, add_one_op_time_ns, find_suc_one_op_time_ns,
+               find_fail_one_op_time_ns);
+
+        array_hashmap_del(urls_map_struct);
     }
 
     printf("Success\n");

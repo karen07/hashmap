@@ -28,8 +28,8 @@ typedef struct __attribute__((packed)) elem {
 
 enum next { elem_empty = -2, elem_last = -1 };
 
-#define get_hash(elem) (map_struct->add_hash(elem) % map_struct->map_size)
-#define get_elem(hash) ((elem_t *)&map_struct->map[hash * map_struct->elem_size])
+#define get_add_hash(data) (map_struct->add_hash(data) % map_struct->map_size)
+#define get_elem(index) ((elem_t *)&map_struct->map[index * map_struct->elem_size])
 
 array_hashmap_t array_hashmap_init(int32_t map_size, double max_load, int32_t type_size)
 {
@@ -127,8 +127,8 @@ int32_t array_hashmap_get_size(array_hashmap_t map_struct_c)
     return map_struct->now_in_map;
 }
 
-int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_elem, void *res_elem,
-                               on_already_in_t on_already_in)
+int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_elem_data,
+                               void *res_elem_data, on_already_in_t on_already_in)
 {
     int32_t add_elem_index = 0;
 
@@ -147,7 +147,7 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
 
     hashmap_t *map_struct = NULL;
     map_struct = (hashmap_t *)map_struct_c;
-    if (!map_struct || !add_elem) {
+    if (!map_struct || !add_elem_data) {
         return array_hashmap_empty_args;
     }
 
@@ -159,14 +159,14 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
     pthread_rwlock_wrlock(&map_struct->rwlock);
 #endif
 
-    add_elem_index = get_hash(add_elem);
+    add_elem_index = get_add_hash(add_elem_data);
     check_elem = get_elem(add_elem_index);
     check_elem_data = &check_elem->data;
 
     if (check_elem->next == elem_empty) {
         if (map_struct->now_in_map < map_struct->map_size * map_struct->max_load) {
             check_elem->next = elem_last;
-            memcpy(check_elem_data, add_elem, map_struct->data_size);
+            memcpy(check_elem_data, add_elem_data, map_struct->data_size);
 
             map_struct->now_in_map++;
 
@@ -181,7 +181,7 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
             return array_hashmap_full;
         }
     } else {
-        check_elem_index = get_hash(check_elem_data);
+        check_elem_index = get_add_hash(check_elem_data);
 
         if (check_elem_index == add_elem_index) {
             list_prev_elem_index = 0;
@@ -193,18 +193,18 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
                 list_elem = get_elem(list_elem_index);
                 list_elem_data = &list_elem->data;
 
-                if (map_struct->add_cmp(add_elem, list_elem_data)) {
+                if (map_struct->add_cmp(add_elem_data, list_elem_data)) {
                     if (on_already_in) {
                         if (on_already_in == array_hashmap_add_new) {
-                            memcpy(list_elem_data, add_elem, map_struct->data_size);
+                            memcpy(list_elem_data, add_elem_data, map_struct->data_size);
                         } else {
-                            if (on_already_in(add_elem, list_elem_data)) {
-                                memcpy(list_elem_data, add_elem, map_struct->data_size);
+                            if (on_already_in(add_elem_data, list_elem_data)) {
+                                memcpy(list_elem_data, add_elem_data, map_struct->data_size);
                             }
                         }
                     }
-                    if (res_elem) {
-                        memcpy(res_elem, list_elem_data, map_struct->data_size);
+                    if (res_elem_data) {
+                        memcpy(res_elem_data, list_elem_data, map_struct->data_size);
                     }
 #ifdef THREAD_SAFETY
                     pthread_rwlock_unlock(&map_struct->rwlock);
@@ -229,7 +229,7 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
                 } while (new_elem->next != elem_empty);
 
                 new_elem->next = elem_last;
-                memcpy(&new_elem->data, add_elem, map_struct->data_size);
+                memcpy(&new_elem->data, add_elem_data, map_struct->data_size);
                 list_elem->next = new_elem_index;
 
                 map_struct->now_in_map++;
@@ -263,7 +263,7 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
                 list_elem->next = new_elem_index;
 
                 check_elem->next = elem_last;
-                memcpy(&check_elem->data, add_elem, map_struct->data_size);
+                memcpy(&check_elem->data, add_elem_data, map_struct->data_size);
 
                 map_struct->now_in_map++;
 
