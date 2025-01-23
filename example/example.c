@@ -201,6 +201,9 @@ int main(void)
 
             add_res = array_hashmap_add_elem(urls_map_struct, &add_elem, NULL, NULL);
             if (add_res != array_hashmap_elem_added) {
+                printf("\n");
+                printf("Fail\n");
+                fflush(stdout);
                 return EXIT_FAILURE;
             }
         }
@@ -221,6 +224,9 @@ int main(void)
         for (i = 0; i < urls_map_size; i++) {
             find_res = array_hashmap_find_elem(urls_map_struct, &urls[url_offsets[i]], &find_elem);
             if (find_res != array_hashmap_elem_finded) {
+                printf("\n");
+                printf("Fail\n");
+                fflush(stdout);
                 return EXIT_FAILURE;
             }
         }
@@ -243,6 +249,9 @@ int main(void)
             find_res =
                 array_hashmap_find_elem(urls_map_struct, &urls_random[url_offsets[i]], &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
+                printf("\n");
+                printf("Fail\n");
+                fflush(stdout);
                 return EXIT_FAILURE;
             }
         }
@@ -258,8 +267,11 @@ int main(void)
         array_hashmap_del(urls_map_struct);
 
         printf("\n");
-        fflush(stdout);
     }
+
+    printf("Success\n");
+    fflush(stdout);
+    return EXIT_SUCCESS;
 
     /*int32_t c_count = collision_count_print(urls_map_struct);
 
