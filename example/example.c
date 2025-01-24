@@ -101,6 +101,7 @@ int main(void)
 {
     FILE *urls_fd = NULL;
     char *urls_random = NULL;
+    char *url;
     int32_t *url_offsets = NULL;
 
     int32_t urls_map_size = 0;
@@ -172,8 +173,6 @@ int main(void)
         }
     }
 
-    memcpy(urls_random, urls, (int32_t)urls_file_size);
-
     url_offsets = (int32_t *)malloc(urls_map_size * sizeof(int32_t));
     url_offsets[0] = 0;
 
@@ -183,7 +182,12 @@ int main(void)
 
     make_random(url_offsets, urls_map_size);
 
-    for (step = 1.00; step > 0.49; step -= 0.01) {
+    memcpy(urls_random, urls, (int32_t)urls_file_size);
+    for (i = 0; i < urls_map_size; i++) {
+        urls_random[url_offsets[i]] = '&';
+    }
+
+    for (step = 1.00; step > 0.01; step -= 0.01) {
         urls_map_struct = array_hashmap_init(urls_map_size / step, 1, sizeof(url_data_t));
         array_hashmap_set_func(urls_map_struct, add_url_hash, add_url_cmp, find_url_hash,
                                find_url_cmp, find_url_hash, find_url_cmp);
@@ -222,7 +226,8 @@ int main(void)
         gettimeofday(&now_timeval_start, NULL);
 
         for (i = 0; i < urls_map_size; i++) {
-            find_res = array_hashmap_find_elem(urls_map_struct, &urls[url_offsets[i]], &find_elem);
+            url = &urls[url_offsets[i]];
+            find_res = array_hashmap_find_elem(urls_map_struct, url, &find_elem);
             if (find_res != array_hashmap_elem_finded) {
                 printf("\n");
                 printf("Find in Fail\n");
@@ -245,9 +250,8 @@ int main(void)
         gettimeofday(&now_timeval_start, NULL);
 
         for (i = 0; i < urls_map_size; i++) {
-            urls_random[url_offsets[i]] = '&';
-            find_res =
-                array_hashmap_find_elem(urls_map_struct, &urls_random[url_offsets[i]], &find_elem);
+            url = &urls_random[url_offsets[i]];
+            find_res = array_hashmap_find_elem(urls_map_struct, url, &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
                 printf("\n");
                 printf("Find not in Fail\n");
@@ -270,7 +274,8 @@ int main(void)
         gettimeofday(&now_timeval_start, NULL);
 
         for (i = 0; i < urls_map_size; i++) {
-            del_res = array_hashmap_del_elem(urls_map_struct, &urls[url_offsets[i]], &del_elem);
+            url = &urls[url_offsets[i]];
+            del_res = array_hashmap_del_elem(urls_map_struct, url, &del_elem);
             if (del_res != array_hashmap_elem_deled) {
                 printf("\n");
                 printf("Del all Fail %d %d\n", i, del_res);
@@ -287,7 +292,8 @@ int main(void)
         del_one_op_time_ns = ((now_us_end - now_us_start) * 1000) / urls_map_size;
 
         for (i = 0; i < urls_map_size; i++) {
-            find_res = array_hashmap_find_elem(urls_map_struct, &urls[url_offsets[i]], &find_elem);
+            url = &urls[url_offsets[i]];
+            find_res = array_hashmap_find_elem(urls_map_struct, url, &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
                 printf("\n");
                 printf("Del all In check Fail\n");
@@ -297,9 +303,8 @@ int main(void)
         }
 
         for (i = 0; i < urls_map_size; i++) {
-            urls_random[url_offsets[i]] = '&';
-            find_res =
-                array_hashmap_find_elem(urls_map_struct, &urls_random[url_offsets[i]], &find_elem);
+            url = &urls_random[url_offsets[i]];
+            find_res = array_hashmap_find_elem(urls_map_struct, url, &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
                 printf("\n");
                 printf("Del all Not in check Fail\n");
