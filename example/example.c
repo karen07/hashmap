@@ -295,6 +295,18 @@ int main(void)
                 return EXIT_FAILURE;
             }
         }
+
+        for (i = 0; i < urls_map_size; i++) {
+            urls_random[url_offsets[i]] = '&';
+            find_res =
+                array_hashmap_find_elem(urls_map_struct, &urls_random[url_offsets[i]], &find_elem);
+            if (find_res != array_hashmap_elem_not_finded) {
+                printf("\n");
+                printf("Del all check Fail\n");
+                fflush(stdout);
+                return EXIT_FAILURE;
+            }
+        }
         /* Удалить все */
 
         printf("%d;%d;%d;%d;%d;\n", fullness, add_one_op_time_ns, find_suc_one_op_time_ns,
