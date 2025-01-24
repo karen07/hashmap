@@ -433,70 +433,85 @@ int32_t array_hashmap_del_elem(array_hashmap_t map_struct_c, const void *del_ele
     return array_hashmap_elem_not_deled;
 }
 
-/*int32_t array_hashmap_del_elem_by_func(array_hashmap_t map_struct_c,
-                                       int32_t (*decide)(const void *))
+int32_t array_hashmap_del_elem_by_func(array_hashmap_t map_struct_c, del_func_t del_func)
 {
+    int32_t del_count = 0;
+    int32_t i = 0;
+
+    int32_t elem_index = 0;
+    elem_t *elem = NULL;
+    void *elem_data = NULL;
+
+    int32_t list_prev_elem_index = 0;
+    elem_t *list_prev_elem = NULL;
+
+    int32_t list_next_elem_index = 0;
+    elem_t *list_next_elem = NULL;
+
+    int32_t list_elem_index = 0;
+    elem_t *list_elem = NULL;
+    void *list_elem_data = NULL;
+
     hashmap_t *map_struct = NULL;
     map_struct = (hashmap_t *)map_struct_c;
-    if (!map_struct || !decide) {
+    if (!map_struct || !del_func) {
         return array_hashmap_empty_args;
     }
 
+#ifdef THREAD_SAFETY
     pthread_rwlock_wrlock(&map_struct->rwlock);
+#endif
 
-    int32_t del_count = 0;
-    for (int32_t i = 0; i < map_struct->map_size; i++) {
-        elem_t *elem = NULL;
-        int32_t offset = i * map_struct->elem_size;
-        elem = (elem_t *)&map_struct->map[offset];
+    for (i = 0; i < map_struct->map_size; i++) {
+        elem = elem_i(i);
         if (elem->next == elem_empty) {
             continue;
         }
 
-        int32_t elem_hash = map_struct->add_hash(&elem->data) % map_struct->map_size;
-        if (elem_hash != i) {
+        elem_data = &elem->data;
+
+        elem_index = index_add(elem_data);
+        if (elem_index != i) {
             continue;
         }
 
-        int32_t prev_elem_hash = elem_last;
-        int32_t collision_chain_hash = elem_hash;
-        while (collision_chain_hash != elem_last) {
-            elem_t *collision_chain_elem = NULL;
-            int32_t offset = collision_chain_hash * map_struct->elem_size;
-            collision_chain_elem = (elem_t *)&map_struct->map[offset];
-            if (decide(&collision_chain_elem->data)) {
-                if (collision_chain_elem->next == elem_last) {
-                    if (prev_elem_hash != elem_last) {
-                        elem_t *prev_elem = NULL;
-                        int32_t offset = prev_elem_hash * map_struct->elem_size;
-                        prev_elem = (elem_t *)&map_struct->map[offset];
-                        prev_elem->next = elem_last;
+        list_prev_elem_index = elem_last;
+        list_elem_index = elem_index;
+        while (list_elem_index != elem_last) {
+            list_elem = elem_i(list_elem_index);
+            list_elem_data = &list_elem->data;
+            if (del_func(list_elem_data)) {
+                if (list_elem->next == elem_last) {
+                    if (list_prev_elem_index != elem_last) {
+                        list_prev_elem = elem_i(list_prev_elem_index);
+                        list_prev_elem->next = elem_last;
                     }
 
-                    collision_chain_elem->next = elem_empty;
-                    collision_chain_hash = elem_last;
+                    list_elem->next = elem_empty;
+                    list_elem_index = elem_last;
                 } else {
-                    int32_t next_elem_hash = collision_chain_elem->next;
-                    int32_t offset = next_elem_hash * map_struct->elem_size;
-                    elem_t *next_elem = (elem_t *)&map_struct->map[offset];
+                    list_next_elem_index = list_elem->next;
+                    list_next_elem = elem_i(list_next_elem_index);
 
-                    memcpy(collision_chain_elem, next_elem, map_struct->elem_size);
+                    memcpy(list_elem, list_next_elem, map_struct->elem_size);
 
-                    next_elem->next = elem_empty;
+                    list_next_elem->next = elem_empty;
                 }
 
                 del_count++;
                 map_struct->now_in_map--;
             } else {
-                prev_elem_hash = collision_chain_hash;
-                collision_chain_hash = collision_chain_elem->next;
+                list_prev_elem_index = list_elem_index;
+                list_elem_index = list_elem->next;
             }
         }
     }
 
+#ifdef THREAD_SAFETY
     pthread_rwlock_unlock(&map_struct->rwlock);
+#endif
     return del_count;
-}*/
+}
 
 void array_hashmap_del(array_hashmap_t map_struct_c)
 {
