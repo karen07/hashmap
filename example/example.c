@@ -312,6 +312,13 @@ int main(void)
                 return EXIT_FAILURE;
             }
         }
+
+        if (array_hashmap_get_size(urls_map_struct) != 0) {
+            printf("\n");
+            printf("Del all Not in check Fail\n");
+            fflush(stdout);
+            return EXIT_FAILURE;
+        }
         /* Удалить все */
 
         printf("%d;%d;%d;%d;%d;\n", fullness, add_one_op_time_ns, find_suc_one_op_time_ns,
