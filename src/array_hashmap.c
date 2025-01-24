@@ -8,7 +8,7 @@
 typedef struct hashmap {
     char *map;
     int32_t map_size;
-    double max_load;
+    int32_t max_size;
     int32_t now_in_map;
     int32_t elem_size;
     int32_t data_size;
@@ -16,6 +16,8 @@ typedef struct hashmap {
     add_cmp_t add_cmp;
     find_hash_t find_hash;
     find_cmp_t find_cmp;
+    del_hash_t del_hash;
+    del_cmp_t del_cmp;
 #ifdef THREAD_SAFETY
     pthread_rwlock_t rwlock;
 #endif
@@ -28,9 +30,10 @@ typedef struct __attribute__((packed)) elem {
 
 enum next { elem_empty = -2, elem_last = -1 };
 
-#define get_add_hash(data) (map_struct->add_hash(data) % map_struct->map_size)
-#define get_find_hash(data) (map_struct->find_hash(data) % map_struct->map_size)
-#define get_elem(index) ((elem_t *)&map_struct->map[index * map_struct->elem_size])
+#define index_add(data) (map_struct->add_hash(data) % map_struct->map_size)
+#define index_find(data) (map_struct->find_hash(data) % map_struct->map_size)
+#define index_del(data) (map_struct->del_hash(data) % map_struct->map_size)
+#define elem_i(index) ((elem_t *)&map_struct->map[index * map_struct->elem_size])
 
 array_hashmap_t array_hashmap_init(int32_t map_size, double max_load, int32_t type_size)
 {
@@ -61,13 +64,15 @@ array_hashmap_t array_hashmap_init(int32_t map_size, double max_load, int32_t ty
     }
 
     map_struct->map_size = map_size;
-    map_struct->max_load = max_load;
+    map_struct->max_size = map_size * max_load;
     map_struct->data_size = type_size;
     map_struct->elem_size = type_size + sizeof(elem_t) - sizeof(char);
     map_struct->add_hash = NULL;
     map_struct->add_cmp = NULL;
     map_struct->find_hash = NULL;
     map_struct->find_cmp = NULL;
+    map_struct->del_hash = NULL;
+    map_struct->del_cmp = NULL;
     map_struct->now_in_map = 0;
 
     map = malloc(map_struct->map_size * map_struct->elem_size);
@@ -86,7 +91,7 @@ array_hashmap_t array_hashmap_init(int32_t map_size, double max_load, int32_t ty
 #endif
 
     for (i = 0; i < map_struct->map_size; i++) {
-        elem_t *elem = get_elem(i);
+        elem_t *elem = elem_i(i);
         elem->next = elem_empty;
     }
 
@@ -94,7 +99,8 @@ array_hashmap_t array_hashmap_init(int32_t map_size, double max_load, int32_t ty
 }
 
 void array_hashmap_set_func(array_hashmap_t map_struct_c, add_hash_t add_hash, add_cmp_t add_cmp,
-                            find_hash_t find_hash, find_cmp_t find_cmp)
+                            find_hash_t find_hash, find_cmp_t find_cmp, del_hash_t del_hash,
+                            del_cmp_t del_cmp)
 {
     hashmap_t *map_struct = NULL;
     map_struct = (hashmap_t *)map_struct_c;
@@ -111,6 +117,9 @@ void array_hashmap_set_func(array_hashmap_t map_struct_c, add_hash_t add_hash, a
 
     map_struct->find_hash = find_hash;
     map_struct->find_cmp = find_cmp;
+
+    map_struct->del_hash = del_hash;
+    map_struct->del_cmp = del_cmp;
 
 #ifdef THREAD_SAFETY
     pthread_rwlock_unlock(&map_struct->rwlock);
@@ -161,12 +170,12 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
     pthread_rwlock_wrlock(&map_struct->rwlock);
 #endif
 
-    add_elem_index = get_add_hash(add_elem_data);
-    check_elem = get_elem(add_elem_index);
+    add_elem_index = index_add(add_elem_data);
+    check_elem = elem_i(add_elem_index);
     check_elem_data = &check_elem->data;
 
     if (check_elem->next == elem_empty) {
-        if (map_struct->now_in_map < map_struct->map_size * map_struct->max_load) {
+        if (map_struct->now_in_map < map_struct->max_size) {
             check_elem->next = elem_last;
             memcpy(check_elem_data, add_elem_data, map_struct->data_size);
 
@@ -183,7 +192,7 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
             return array_hashmap_full;
         }
     } else {
-        check_elem_index = get_add_hash(check_elem_data);
+        check_elem_index = index_add(check_elem_data);
 
         if (check_elem_index == add_elem_index) {
             list_prev_elem_index = 0;
@@ -192,7 +201,7 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
             list_elem_data = NULL;
 
             do {
-                list_elem = get_elem(list_elem_index);
+                list_elem = elem_i(list_elem_index);
                 list_elem_data = &list_elem->data;
 
                 if (map_struct->add_cmp(add_elem_data, list_elem_data)) {
@@ -219,15 +228,15 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
             } while (list_elem_index != elem_last);
 
             list_elem_index = list_prev_elem_index;
-            list_elem = get_elem(list_elem_index);
+            list_elem = elem_i(list_elem_index);
 
-            if (map_struct->now_in_map < map_struct->map_size * map_struct->max_load) {
+            if (map_struct->now_in_map < map_struct->max_size) {
                 new_elem_index = list_elem_index;
                 new_elem = NULL;
 
                 do {
                     new_elem_index = (new_elem_index + 1) % map_struct->map_size;
-                    new_elem = get_elem(new_elem_index);
+                    new_elem = elem_i(new_elem_index);
                 } while (new_elem->next != elem_empty);
 
                 new_elem->next = elem_last;
@@ -248,10 +257,10 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
                 return array_hashmap_full;
             }
         } else {
-            if (map_struct->now_in_map < map_struct->map_size * map_struct->max_load) {
-                list_elem = get_elem(check_elem_index);
+            if (map_struct->now_in_map < map_struct->max_size) {
+                list_elem = elem_i(check_elem_index);
                 while (list_elem->next != add_elem_index) {
-                    list_elem = get_elem(list_elem->next);
+                    list_elem = elem_i(list_elem->next);
                 }
 
                 new_elem_index = add_elem_index;
@@ -259,7 +268,7 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
 
                 do {
                     new_elem_index = (new_elem_index + 1) % map_struct->map_size;
-                    new_elem = get_elem(new_elem_index);
+                    new_elem = elem_i(new_elem_index);
                 } while (new_elem->next != elem_empty);
 
                 memcpy(new_elem, check_elem, map_struct->elem_size);
@@ -308,8 +317,8 @@ int32_t array_hashmap_find_elem(array_hashmap_t map_struct_c, const void *find_e
     pthread_rwlock_rdlock(&map_struct->rwlock);
 #endif
 
-    find_elem_index = get_find_hash(find_elem_data);
-    find_elem = get_elem(find_elem_index);
+    find_elem_index = index_find(find_elem_data);
+    find_elem = elem_i(find_elem_index);
 
     if (find_elem->next == elem_empty) {
 #ifdef THREAD_SAFETY
@@ -320,7 +329,7 @@ int32_t array_hashmap_find_elem(array_hashmap_t map_struct_c, const void *find_e
 
     list_elem_index = find_elem_index;
     while (list_elem_index != elem_last) {
-        list_elem = get_elem(list_elem_index);
+        list_elem = elem_i(list_elem_index);
         list_elem_data = &list_elem->data;
         if (map_struct->find_cmp(find_elem_data, list_elem_data)) {
             if (res_elem_data) {
@@ -341,78 +350,90 @@ int32_t array_hashmap_find_elem(array_hashmap_t map_struct_c, const void *find_e
     return array_hashmap_elem_not_finded;
 }
 
-/*int32_t array_hashmap_del_elem(array_hashmap_t map_struct_c, const void *del_elem, void *res_elem)
+int32_t array_hashmap_del_elem(array_hashmap_t map_struct_c, const void *del_elem_data,
+                               void *res_elem_data)
 {
+    int32_t del_elem_index = 0;
+    elem_t *del_elem = NULL;
+
+    int32_t list_prev_elem_index = 0;
+    elem_t *list_prev_elem = NULL;
+
+    int32_t list_next_elem_index = 0;
+    elem_t *list_next_elem = NULL;
+
+    int32_t list_elem_index = 0;
+    elem_t *list_elem = NULL;
+    void *list_elem_data = NULL;
+
     hashmap_t *map_struct = NULL;
     map_struct = (hashmap_t *)map_struct_c;
-    if (!map_struct || !del_elem) {
+    if (!map_struct || !del_elem_data) {
         return array_hashmap_empty_args;
     }
 
-    if (!map_struct->find_hash || !map_struct->find_cmp) {
+    if (!map_struct->del_hash || !map_struct->del_cmp) {
         return array_hashmap_empty_funcs;
     }
 
+#ifdef THREAD_SAFETY
     pthread_rwlock_wrlock(&map_struct->rwlock);
+#endif
 
-    int32_t del_elem_hash = 0;
-    del_elem_hash = map_struct->find_hash(del_elem) % map_struct->map_size;
-    elem_t *on_hash_elem = NULL;
-    int32_t offset = del_elem_hash * map_struct->elem_size;
-    on_hash_elem = (elem_t *)&map_struct->map[offset];
+    del_elem_index = index_del(del_elem_data);
+    del_elem = elem_i(del_elem_index);
 
-    if (on_hash_elem->next == elem_empty) {
+    if (del_elem->next == elem_empty) {
+#ifdef THREAD_SAFETY
         pthread_rwlock_unlock(&map_struct->rwlock);
+#endif
         return array_hashmap_elem_not_deled;
     }
 
-    int32_t prev_elem_hash = elem_last;
-    int32_t collision_chain_hash = del_elem_hash;
-    while (collision_chain_hash != elem_last) {
-        elem_t *collision_chain_elem = NULL;
-        int32_t offset = collision_chain_hash * map_struct->elem_size;
-        collision_chain_elem = (elem_t *)&map_struct->map[offset];
-        if (map_struct->find_cmp(del_elem, &collision_chain_elem->data)) {
-            if (res_elem) {
-                memcpy(res_elem, &collision_chain_elem->data, map_struct->data_size);
+    list_prev_elem_index = elem_last;
+    list_elem_index = del_elem_index;
+    while (list_elem_index != elem_last) {
+        list_elem = elem_i(list_elem_index);
+        list_elem_data = &list_elem->data;
+        if (map_struct->del_cmp(del_elem_data, list_elem_data)) {
+            if (res_elem_data) {
+                memcpy(res_elem_data, list_elem_data, map_struct->data_size);
             }
 
-            if (collision_chain_elem->next == elem_last) {
-                if (prev_elem_hash != elem_last) {
-                    elem_t *prev_elem = NULL;
-                    int32_t offset = prev_elem_hash * map_struct->elem_size;
-                    prev_elem = (elem_t *)&map_struct->map[offset];
-
-                    prev_elem->next = elem_last;
+            if (list_elem->next == elem_last) {
+                if (list_prev_elem_index != elem_last) {
+                    list_prev_elem = elem_i(list_prev_elem_index);
+                    list_prev_elem->next = elem_last;
                 }
 
-                collision_chain_elem->next = elem_empty;
+                list_elem->next = elem_empty;
             } else {
-                int32_t next_elem_hash = collision_chain_elem->next;
-                elem_t *next_elem = NULL;
-                int32_t offset = next_elem_hash * map_struct->elem_size;
-                next_elem = (elem_t *)&map_struct->map[offset];
+                list_next_elem_index = list_elem->next;
+                list_next_elem = elem_i(list_next_elem_index);
 
-                memcpy(collision_chain_elem, next_elem, map_struct->elem_size);
+                memcpy(list_elem, list_next_elem, map_struct->elem_size);
 
-                next_elem->next = elem_empty;
+                list_next_elem->next = elem_empty;
             }
 
             map_struct->now_in_map--;
-
+#ifdef THREAD_SAFETY
             pthread_rwlock_unlock(&map_struct->rwlock);
+#endif
             return array_hashmap_elem_deled;
         }
 
-        prev_elem_hash = collision_chain_hash;
-        collision_chain_hash = collision_chain_elem->next;
+        list_prev_elem_index = list_elem_index;
+        list_elem_index = list_elem->next;
     }
 
+#ifdef THREAD_SAFETY
     pthread_rwlock_unlock(&map_struct->rwlock);
+#endif
     return array_hashmap_elem_not_deled;
 }
 
-int32_t array_hashmap_del_elem_by_func(array_hashmap_t map_struct_c,
+/*int32_t array_hashmap_del_elem_by_func(array_hashmap_t map_struct_c,
                                        int32_t (*decide)(const void *))
 {
     hashmap_t *map_struct = NULL;

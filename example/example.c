@@ -116,6 +116,9 @@ int main(void)
     url_data_t find_elem;
     int32_t find_res;
 
+    url_data_t del_elem;
+    int32_t del_res;
+
     struct timeval now_timeval_start;
     struct timeval now_timeval_end;
 
@@ -125,6 +128,7 @@ int main(void)
     int32_t add_one_op_time_ns;
     int32_t find_suc_one_op_time_ns;
     int32_t find_fail_one_op_time_ns;
+    int32_t del_one_op_time_ns;
     int32_t fullness;
 
     const array_hashmap_t *urls_map_struct = NULL;
@@ -182,7 +186,7 @@ int main(void)
     for (step = 1.00; step > 0.49; step -= 0.01) {
         urls_map_struct = array_hashmap_init(urls_map_size / step, 1, sizeof(url_data_t));
         array_hashmap_set_func(urls_map_struct, add_url_hash, add_url_cmp, find_url_hash,
-                               find_url_cmp);
+                               find_url_cmp, find_url_hash, find_url_cmp);
 
         /* Новые */
         clean_cache();
@@ -196,7 +200,7 @@ int main(void)
             add_res = array_hashmap_add_elem(urls_map_struct, &add_elem, NULL, NULL);
             if (add_res != array_hashmap_elem_added) {
                 printf("\n");
-                printf("Fail\n");
+                printf("Add Fail\n");
                 fflush(stdout);
                 return EXIT_FAILURE;
             }
@@ -210,6 +214,8 @@ int main(void)
         add_one_op_time_ns = ((now_us_end - now_us_start) * 1000) / urls_map_size;
         /* Новые */
 
+        fullness = (array_hashmap_get_size(urls_map_struct) / (urls_map_size / step)) * 100;
+
         /* Всталенные */
         clean_cache();
 
@@ -219,7 +225,7 @@ int main(void)
             find_res = array_hashmap_find_elem(urls_map_struct, &urls[url_offsets[i]], &find_elem);
             if (find_res != array_hashmap_elem_finded) {
                 printf("\n");
-                printf("Fail\n");
+                printf("Find in Fail\n");
                 fflush(stdout);
                 return EXIT_FAILURE;
             }
@@ -244,7 +250,7 @@ int main(void)
                 array_hashmap_find_elem(urls_map_struct, &urls_random[url_offsets[i]], &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
                 printf("\n");
-                printf("Fail\n");
+                printf("Find not in Fail\n");
                 fflush(stdout);
                 return EXIT_FAILURE;
             }
@@ -258,10 +264,41 @@ int main(void)
         find_fail_one_op_time_ns = ((now_us_end - now_us_start) * 1000) / urls_map_size;
         /* Не всталенные */
 
-        fullness = (array_hashmap_get_size(urls_map_struct) / (urls_map_size / step)) * 100;
+        /* Удалить все */
+        clean_cache();
 
-        printf("%d;%d;%d;%d;\n", fullness, add_one_op_time_ns, find_suc_one_op_time_ns,
-               find_fail_one_op_time_ns);
+        gettimeofday(&now_timeval_start, NULL);
+
+        for (i = 0; i < urls_map_size; i++) {
+            del_res = array_hashmap_del_elem(urls_map_struct, &urls[url_offsets[i]], &del_elem);
+            if (del_res != array_hashmap_elem_deled) {
+                printf("\n");
+                printf("Del all Fail %d %d\n", i, del_res);
+                fflush(stdout);
+                return EXIT_FAILURE;
+            }
+        }
+
+        gettimeofday(&now_timeval_end, NULL);
+
+        now_us_start = now_timeval_start.tv_sec * 1000000 + now_timeval_start.tv_usec;
+        now_us_end = now_timeval_end.tv_sec * 1000000 + now_timeval_end.tv_usec;
+
+        del_one_op_time_ns = ((now_us_end - now_us_start) * 1000) / urls_map_size;
+
+        for (i = 0; i < urls_map_size; i++) {
+            find_res = array_hashmap_find_elem(urls_map_struct, &urls[url_offsets[i]], &find_elem);
+            if (find_res != array_hashmap_elem_not_finded) {
+                printf("\n");
+                printf("Del all check Fail\n");
+                fflush(stdout);
+                return EXIT_FAILURE;
+            }
+        }
+        /* Удалить все */
+
+        printf("%d;%d;%d;%d;%d;\n", fullness, add_one_op_time_ns, find_suc_one_op_time_ns,
+               find_fail_one_op_time_ns, del_one_op_time_ns);
 
         array_hashmap_del(urls_map_struct);
     }
