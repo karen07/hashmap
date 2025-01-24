@@ -218,9 +218,16 @@ int32_t main(void)
     for (step = 1.00; step > 0.01; step -= 0.01) {
         time_index = 0;
 
+        /* Init */
         urls_map_struct = array_hashmap_init(urls_map_size / step, 1, sizeof(url_data_t));
+        if (urls_map_struct == NULL) {
+            printf("Init error\n");
+            return EXIT_FAILURE;
+        }
+
         array_hashmap_set_func(urls_map_struct, url_add_hash, url_add_cmp, url_find_hash,
                                url_find_cmp, url_find_hash, url_find_cmp);
+        /* Init */
 
         /* Add values */
         TIMER_START();
