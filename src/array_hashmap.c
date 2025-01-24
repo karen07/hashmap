@@ -206,7 +206,7 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
 
                 if (map_struct->add_cmp(add_elem_data, list_elem_data)) {
                     if (on_already_in) {
-                        if (on_already_in == array_hashmap_add_new) {
+                        if (on_already_in == array_hashmap_save_new_func) {
                             memcpy(list_elem_data, add_elem_data, map_struct->data_size);
                         } else {
                             if (on_already_in(add_elem_data, list_elem_data)) {

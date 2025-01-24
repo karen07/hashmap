@@ -4,12 +4,14 @@
 #include <stdint.h>
 
 typedef int32_t bool;
+typedef uint32_t hash;
 typedef const void *array_hashmap_t;
-typedef uint32_t (*add_hash_t)(const void *add_elem_data);
+
+typedef hash (*add_hash_t)(const void *add_elem_data);
 typedef bool (*add_cmp_t)(const void *add_elem_data, const void *hashmap_elem_data);
-typedef uint32_t (*find_hash_t)(const void *find_elem_data);
+typedef hash (*find_hash_t)(const void *find_elem_data);
 typedef bool (*find_cmp_t)(const void *find_elem_data, const void *hashmap_elem_data);
-typedef uint32_t (*del_hash_t)(const void *del_elem_data);
+typedef hash (*del_hash_t)(const void *del_elem_data);
 typedef bool (*del_cmp_t)(const void *del_elem_data, const void *hashmap_elem_data);
 typedef bool (*on_already_in_t)(const void *add_elem_data, const void *hashmap_elem_data);
 typedef bool (*del_func_t)(const void *del_elem_data);
@@ -28,8 +30,10 @@ int32_t array_hashmap_del_elem_by_func(array_hashmap_t, del_func_t);
 
 int32_t array_hashmap_get_size(array_hashmap_t);
 
-#define array_hashmap_add_new (on_already_in_t)1
-#define array_hashmap_save_old (on_already_in_t)0
+#define array_hashmap_save_new 1
+#define array_hashmap_save_old 0
+#define array_hashmap_save_new_func (on_already_in_t)1
+#define array_hashmap_save_old_func (on_already_in_t)0
 
 enum array_hashmap_ret {
     array_hashmap_empty_args = -3,

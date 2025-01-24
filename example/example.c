@@ -59,9 +59,9 @@ int32_t url_on_already_in(const void *add_elem_data, const void *hashmap_elem_da
     const url_data_t *elem2 = hashmap_elem_data;
 
     if (elem1->time > elem2->time) {
-        return 1;
+        return array_hashmap_save_new;
     } else {
-        return 0;
+        return array_hashmap_save_old;
     }
 }
 
@@ -408,5 +408,5 @@ int main(void)
     printf("in map elem count %d\n", count);
     array_hashmap_del_iter(iter);*/
 
-    return 0;
+    return EXIT_SUCCESS;
 }
