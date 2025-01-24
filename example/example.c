@@ -126,7 +126,7 @@ int main(void)
     uint64_t now_us_start;
     uint64_t now_us_end;
 
-    int32_t one_op_time_ns[10];
+    int32_t one_op_time_ns[6];
     int32_t fullness;
 
     const array_hashmap_t *urls_map_struct = NULL;
@@ -222,6 +222,8 @@ int main(void)
 
         for (i = 0; i < urls_map_size; i++) {
             url = &urls[url_offsets[i]];
+            find_elem.url_pos = 0;
+            find_elem.time = 0;
             find_res = array_hashmap_find_elem(urls_map_struct, url, &find_elem);
             if (find_res != array_hashmap_elem_finded || find_elem.time != 10) {
                 printf("Find in Fail\n");
@@ -290,6 +292,8 @@ int main(void)
 
         for (i = 0; i < urls_map_size; i++) {
             url = &urls[url_offsets[i]];
+            find_elem.url_pos = 0;
+            find_elem.time = 0;
             find_res = array_hashmap_find_elem(urls_map_struct, url, &find_elem);
             if (find_res != array_hashmap_elem_finded || find_elem.time != 100) {
                 printf("Find New in Fail\n");
@@ -312,8 +316,10 @@ int main(void)
 
         for (i = 0; i < urls_map_size; i++) {
             url = &urls[url_offsets[i]];
+            del_elem.url_pos = 0;
+            del_elem.time = 0;
             del_res = array_hashmap_del_elem(urls_map_struct, url, &del_elem);
-            if (del_res != array_hashmap_elem_deled) {
+            if (del_res != array_hashmap_elem_deled || del_elem.time != 100) {
                 printf("Del all Fail\n");
                 return EXIT_FAILURE;
             }
@@ -351,7 +357,7 @@ int main(void)
         /* Удалить все */
 
         printf("%d;", fullness);
-        for (i = 0; i < 5; i++) {
+        for (i = 0; i < 6; i++) {
             printf("%d;", one_op_time_ns[i]);
         }
         printf("\n");
