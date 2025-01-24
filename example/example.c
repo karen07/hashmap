@@ -126,10 +126,7 @@ int main(void)
     uint64_t now_us_start;
     uint64_t now_us_end;
 
-    int32_t add_one_op_time_ns;
-    int32_t find_suc_one_op_time_ns;
-    int32_t find_fail_one_op_time_ns;
-    int32_t del_one_op_time_ns;
+    int32_t one_op_time_ns[10];
     int32_t fullness;
 
     const array_hashmap_t *urls_map_struct = NULL;
@@ -199,13 +196,11 @@ int main(void)
 
         for (i = 0; i < urls_map_size; i++) {
             add_elem.url_pos = url_offsets[i];
-            add_elem.time = i;
+            add_elem.time = 10;
 
             add_res = array_hashmap_add_elem(urls_map_struct, &add_elem, NULL, NULL);
             if (add_res != array_hashmap_elem_added) {
-                printf("\n");
                 printf("Add Fail\n");
-                fflush(stdout);
                 return EXIT_FAILURE;
             }
         }
@@ -215,7 +210,7 @@ int main(void)
         now_us_start = now_timeval_start.tv_sec * 1000000 + now_timeval_start.tv_usec;
         now_us_end = now_timeval_end.tv_sec * 1000000 + now_timeval_end.tv_usec;
 
-        add_one_op_time_ns = ((now_us_end - now_us_start) * 1000) / urls_map_size;
+        one_op_time_ns[0] = ((now_us_end - now_us_start) * 1000) / urls_map_size;
         /* Новые */
 
         fullness = (array_hashmap_get_size(urls_map_struct) / (urls_map_size / step)) * 100;
@@ -228,10 +223,8 @@ int main(void)
         for (i = 0; i < urls_map_size; i++) {
             url = &urls[url_offsets[i]];
             find_res = array_hashmap_find_elem(urls_map_struct, url, &find_elem);
-            if (find_res != array_hashmap_elem_finded) {
-                printf("\n");
+            if (find_res != array_hashmap_elem_finded || find_elem.time != 10) {
                 printf("Find in Fail\n");
-                fflush(stdout);
                 return EXIT_FAILURE;
             }
         }
@@ -241,7 +234,7 @@ int main(void)
         now_us_start = now_timeval_start.tv_sec * 1000000 + now_timeval_start.tv_usec;
         now_us_end = now_timeval_end.tv_sec * 1000000 + now_timeval_end.tv_usec;
 
-        find_suc_one_op_time_ns = ((now_us_end - now_us_start) * 1000) / urls_map_size;
+        one_op_time_ns[1] = ((now_us_end - now_us_start) * 1000) / urls_map_size;
         /* Всталенные */
 
         /* Не всталенные */
@@ -253,9 +246,7 @@ int main(void)
             url = &urls_random[url_offsets[i]];
             find_res = array_hashmap_find_elem(urls_map_struct, url, &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
-                printf("\n");
                 printf("Find not in Fail\n");
-                fflush(stdout);
                 return EXIT_FAILURE;
             }
         }
@@ -265,8 +256,54 @@ int main(void)
         now_us_start = now_timeval_start.tv_sec * 1000000 + now_timeval_start.tv_usec;
         now_us_end = now_timeval_end.tv_sec * 1000000 + now_timeval_end.tv_usec;
 
-        find_fail_one_op_time_ns = ((now_us_end - now_us_start) * 1000) / urls_map_size;
+        one_op_time_ns[2] = ((now_us_end - now_us_start) * 1000) / urls_map_size;
         /* Не всталенные */
+
+        /* Вставить новые */
+        clean_cache();
+
+        gettimeofday(&now_timeval_start, NULL);
+
+        for (i = 0; i < urls_map_size; i++) {
+            add_elem.url_pos = url_offsets[i];
+            add_elem.time = 100;
+
+            add_res = array_hashmap_add_elem(urls_map_struct, &add_elem, NULL, url_on_already_in);
+            if (add_res != array_hashmap_elem_already_in) {
+                printf("Add New Fail\n");
+                return EXIT_FAILURE;
+            }
+        }
+
+        gettimeofday(&now_timeval_end, NULL);
+
+        now_us_start = now_timeval_start.tv_sec * 1000000 + now_timeval_start.tv_usec;
+        now_us_end = now_timeval_end.tv_sec * 1000000 + now_timeval_end.tv_usec;
+
+        one_op_time_ns[3] = ((now_us_end - now_us_start) * 1000) / urls_map_size;
+        /* Вставить новые */
+
+        /* Всталенные новые*/
+        clean_cache();
+
+        gettimeofday(&now_timeval_start, NULL);
+
+        for (i = 0; i < urls_map_size; i++) {
+            url = &urls[url_offsets[i]];
+            find_res = array_hashmap_find_elem(urls_map_struct, url, &find_elem);
+            if (find_res != array_hashmap_elem_finded || find_elem.time != 100) {
+                printf("Find New in Fail\n");
+                return EXIT_FAILURE;
+            }
+        }
+
+        gettimeofday(&now_timeval_end, NULL);
+
+        now_us_start = now_timeval_start.tv_sec * 1000000 + now_timeval_start.tv_usec;
+        now_us_end = now_timeval_end.tv_sec * 1000000 + now_timeval_end.tv_usec;
+
+        one_op_time_ns[4] = ((now_us_end - now_us_start) * 1000) / urls_map_size;
+        /* Всталенные новые*/
 
         /* Удалить все */
         clean_cache();
@@ -277,9 +314,7 @@ int main(void)
             url = &urls[url_offsets[i]];
             del_res = array_hashmap_del_elem(urls_map_struct, url, &del_elem);
             if (del_res != array_hashmap_elem_deled) {
-                printf("\n");
-                printf("Del all Fail %d %d\n", i, del_res);
-                fflush(stdout);
+                printf("Del all Fail\n");
                 return EXIT_FAILURE;
             }
         }
@@ -289,15 +324,13 @@ int main(void)
         now_us_start = now_timeval_start.tv_sec * 1000000 + now_timeval_start.tv_usec;
         now_us_end = now_timeval_end.tv_sec * 1000000 + now_timeval_end.tv_usec;
 
-        del_one_op_time_ns = ((now_us_end - now_us_start) * 1000) / urls_map_size;
+        one_op_time_ns[5] = ((now_us_end - now_us_start) * 1000) / urls_map_size;
 
         for (i = 0; i < urls_map_size; i++) {
             url = &urls[url_offsets[i]];
             find_res = array_hashmap_find_elem(urls_map_struct, url, &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
-                printf("\n");
                 printf("Del all In check Fail\n");
-                fflush(stdout);
                 return EXIT_FAILURE;
             }
         }
@@ -306,29 +339,28 @@ int main(void)
             url = &urls_random[url_offsets[i]];
             find_res = array_hashmap_find_elem(urls_map_struct, url, &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
-                printf("\n");
                 printf("Del all Not in check Fail\n");
-                fflush(stdout);
                 return EXIT_FAILURE;
             }
         }
 
         if (array_hashmap_get_size(urls_map_struct) != 0) {
-            printf("\n");
             printf("Del all Not in check Fail\n");
-            fflush(stdout);
             return EXIT_FAILURE;
         }
         /* Удалить все */
 
-        printf("%d;%d;%d;%d;%d;\n", fullness, add_one_op_time_ns, find_suc_one_op_time_ns,
-               find_fail_one_op_time_ns, del_one_op_time_ns);
+        printf("%d;", fullness);
+        for (i = 0; i < 5; i++) {
+            printf("%d;", one_op_time_ns[i]);
+        }
+        printf("\n");
+        fflush(stdout);
 
         array_hashmap_del(urls_map_struct);
     }
 
     printf("Success\n");
-    fflush(stdout);
     return EXIT_SUCCESS;
 
     /*int32_t c_count = collision_count_print(urls_map_struct);
