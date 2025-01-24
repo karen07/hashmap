@@ -290,7 +290,7 @@ int main(void)
             find_res = array_hashmap_find_elem(urls_map_struct, &urls[url_offsets[i]], &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
                 printf("\n");
-                printf("Del all check Fail\n");
+                printf("Del all In check Fail\n");
                 fflush(stdout);
                 return EXIT_FAILURE;
             }
@@ -302,7 +302,7 @@ int main(void)
                 array_hashmap_find_elem(urls_map_struct, &urls_random[url_offsets[i]], &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
                 printf("\n");
-                printf("Del all check Fail\n");
+                printf("Del all Not in check Fail\n");
                 fflush(stdout);
                 return EXIT_FAILURE;
             }
