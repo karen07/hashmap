@@ -397,7 +397,7 @@ int32_t main(void)
         }
         /* Check that everything is deleted */
 
-        printf("%d;", (int32_t)step * 100);
+        printf("%d;", (int32_t)(step * 100));
         for (i = 0; i < time_index; i++) {
             printf("%d;", one_op_time_ns[i]);
         }
