@@ -111,10 +111,11 @@ void make_random(int32_t *array, int32_t size)
     }
 }
 
-#define TIMER_START()                           \
-    {                                           \
-        clean_cache();                          \
-        gettimeofday(&now_timeval_start, NULL); \
+#define TIMER_START()                            \
+    {                                            \
+        make_random(url_offsets, urls_map_size); \
+        clean_cache();                           \
+        gettimeofday(&now_timeval_start, NULL);  \
     }
 
 #define TIMER_END()                                                                          \
@@ -214,6 +215,17 @@ int32_t main(void)
     for (i = 0; i < urls_map_size; i++) {
         urls_random[url_offsets[i]] = '&';
     }
+
+    printf("Map size %d\n", urls_map_size);
+
+    printf("Fullness;"
+           "Add values;"
+           "Check that all values are inserted;"
+           "Check that there are no non-inserted elements;"
+           "Update values;"
+           "Check the updated values;"
+           "Delete everything individually;"
+           "Delete everything at once;\n");
 
     for (step = 1.00; step > 0.01; step -= 0.01) {
         time_index = 0;
