@@ -95,7 +95,7 @@ void clean_cache(void)
     free(c);
 }
 
-void make_random(int32_t *array, int32_t size)
+void random_permutation(int32_t *array, int32_t size)
 {
     int32_t i = 0;
 
@@ -111,11 +111,11 @@ void make_random(int32_t *array, int32_t size)
     }
 }
 
-#define TIMER_START()                            \
-    {                                            \
-        make_random(url_offsets, urls_map_size); \
-        clean_cache();                           \
-        gettimeofday(&now_timeval_start, NULL);  \
+#define TIMER_START()                                   \
+    {                                                   \
+        random_permutation(url_offsets, urls_map_size); \
+        clean_cache();                                  \
+        gettimeofday(&now_timeval_start, NULL);         \
     }
 
 #define TIMER_END()                                                                          \
@@ -208,7 +208,7 @@ int32_t main(void)
         url_offsets[i + 1] = strchr(&urls[url_offsets[i] + 1], 0) - urls + 1;
     }
 
-    make_random(url_offsets, urls_map_size);
+    random_permutation(url_offsets, urls_map_size);
 
     memcpy(urls_random, urls, (int32_t)urls_file_size);
     for (i = 0; i < urls_map_size; i++) {
