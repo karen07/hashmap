@@ -159,7 +159,6 @@ int32_t main(void)
 
     int32_t time_index = 0;
     int32_t one_op_time_ns[100];
-    int32_t fullness;
 
     const array_hashmap_t *urls_map_struct = NULL;
 
@@ -255,8 +254,6 @@ int32_t main(void)
         }
         TIMER_END();
         /* Add values */
-
-        fullness = (array_hashmap_get_size(urls_map_struct) / (urls_map_size / step)) * 100;
 
         /* Check that all values are inserted */
         TIMER_START();
@@ -400,7 +397,7 @@ int32_t main(void)
         }
         /* Check that everything is deleted */
 
-        printf("%d;", fullness);
+        printf("%d;", (int32_t)step * 100);
         for (i = 0; i < time_index; i++) {
             printf("%d;", one_op_time_ns[i]);
         }
