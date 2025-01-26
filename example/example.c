@@ -150,6 +150,22 @@ void *del_thread_func(__attribute__((unused)) void *arg)
     return NULL;
 }
 
+void *find_thread_func(__attribute__((unused)) void *arg)
+{
+    int32_t i = 0;
+    char *url;
+
+    while (1) {
+        i = rand() % urls_map_size;
+
+        url = &urls[url_offsets[i]];
+
+        array_hashmap_find_elem(urls_map_struct, url, NULL);
+    }
+
+    return NULL;
+}
+
 #define TIMER_START()                                   \
     {                                                   \
         random_permutation(url_offsets, urls_map_size); \
@@ -199,6 +215,7 @@ int32_t main(void)
 
     pthread_t add_thread;
     pthread_t del_thread;
+    pthread_t find_thread;
 
     urls_fd = fopen("urls", "r");
     if (urls_fd == NULL) {
@@ -460,6 +477,16 @@ int32_t main(void)
 
     if (pthread_detach(del_thread)) {
         printf("Can't detach del_thread\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (pthread_create(&find_thread, NULL, find_thread_func, NULL)) {
+        printf("Can't create find_thread\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (pthread_detach(find_thread)) {
+        printf("Can't detach find_thread\n");
         exit(EXIT_FAILURE);
     }
 
