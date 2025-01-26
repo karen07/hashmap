@@ -513,13 +513,15 @@ int32_t array_hashmap_del_elem_by_func(array_hashmap_t map_struct_c, del_func_t 
     return del_count;
 }
 
-void array_hashmap_del(array_hashmap_t map_struct_c)
+void array_hashmap_del(array_hashmap_t *map_struct_c)
 {
     hashmap_t *map_struct = NULL;
-    map_struct = (hashmap_t *)map_struct_c;
+    map_struct = (hashmap_t *)(*map_struct_c);
     if (!map_struct) {
         return;
     }
+
+    *map_struct_c = NULL;
 
 #ifdef THREAD_SAFETY
     pthread_rwlock_wrlock(&map_struct->rwlock);

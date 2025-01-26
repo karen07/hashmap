@@ -17,7 +17,7 @@ typedef bool (*on_already_in_t)(const void *add_elem_data, const void *hashmap_e
 typedef bool (*del_func_t)(const void *del_elem_data);
 
 array_hashmap_t array_hashmap_init(int32_t hashmap_size, double max_load, int32_t type_size);
-void array_hashmap_del(array_hashmap_t);
+void array_hashmap_del(array_hashmap_t *);
 
 void array_hashmap_set_func(array_hashmap_t, add_hash_t, add_cmp_t, find_hash_t, find_cmp_t,
                             del_hash_t, del_cmp_t);

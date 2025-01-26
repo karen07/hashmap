@@ -7,6 +7,9 @@
 #include <errno.h>
 #include <string.h>
 #include <time.h>
+#ifdef THREAD_SAFETY
+#include <pthread.h>
+#endif
 
 #define FIRST_EXAMPLE_TIME 10
 #define SECOND_EXAMPLE_TIME 100
@@ -17,6 +20,9 @@ typedef struct url_data {
 } url_data_t;
 
 char *urls;
+int32_t *url_offsets = NULL;
+int32_t urls_map_size = 0;
+array_hashmap_t urls_map_struct = NULL;
 
 hash djb33_hash(const char *s)
 {
@@ -111,6 +117,39 @@ void random_permutation(int32_t *array, int32_t size)
     }
 }
 
+void *add_thread_func(__attribute__((unused)) void *arg)
+{
+    int32_t i = 0;
+    url_data_t add_elem;
+
+    while (1) {
+        i = rand() % urls_map_size;
+
+        add_elem.url_pos = url_offsets[i];
+        add_elem.time = FIRST_EXAMPLE_TIME;
+
+        array_hashmap_add_elem(urls_map_struct, &add_elem, NULL, NULL);
+    }
+
+    return NULL;
+}
+
+void *del_thread_func(__attribute__((unused)) void *arg)
+{
+    int32_t i = 0;
+    char *url;
+
+    while (1) {
+        i = rand() % urls_map_size;
+
+        url = &urls[url_offsets[i]];
+
+        array_hashmap_del_elem(urls_map_struct, url, NULL);
+    }
+
+    return NULL;
+}
+
 #define TIMER_START()                                   \
     {                                                   \
         random_permutation(url_offsets, urls_map_size); \
@@ -131,9 +170,7 @@ int32_t main(void)
     FILE *urls_fd = NULL;
     char *urls_random = NULL;
     char *url;
-    int32_t *url_offsets = NULL;
 
-    int32_t urls_map_size = 0;
     int64_t urls_file_size = 0;
 
     int32_t i = 0;
@@ -160,7 +197,8 @@ int32_t main(void)
     int32_t time_index = 0;
     int32_t one_op_time_ns[100];
 
-    const array_hashmap_t *urls_map_struct = NULL;
+    pthread_t add_thread;
+    pthread_t del_thread;
 
     urls_fd = fopen("urls", "r");
     if (urls_fd == NULL) {
@@ -208,25 +246,23 @@ int32_t main(void)
         url_offsets[i + 1] = strchr(&urls[url_offsets[i] + 1], 0) - urls + 1;
     }
 
-    random_permutation(url_offsets, urls_map_size);
-
     memcpy(urls_random, urls, (int32_t)urls_file_size);
     for (i = 0; i < urls_map_size; i++) {
         urls_random[url_offsets[i]] = '&';
     }
 
-    printf("Map size %d\n", urls_map_size);
+    printf("URLs count: %d\n", urls_map_size);
 
-    printf("Fullness;"
+    /* printf("Fullness;"
            "Add values;"
            "Check that all values are inserted;"
            "Check that there are no non-inserted elements;"
            "Update values;"
            "Check the updated values;"
            "Delete everything individually;"
-           "Delete everything at once;\n");
+           "Delete everything at once;\n"); */
 
-    for (step = 1.00; step > 0.01; step -= 0.01) {
+    for (step = 0.49; step > 0.49; step -= 0.01) {
         time_index = 0;
 
         /* Init */
@@ -404,7 +440,46 @@ int32_t main(void)
         printf("\n");
         fflush(stdout);
 
-        array_hashmap_del(urls_map_struct);
+        array_hashmap_del(&urls_map_struct);
+    }
+
+    if (pthread_create(&add_thread, NULL, add_thread_func, NULL)) {
+        printf("Can't create add_thread\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (pthread_detach(add_thread)) {
+        printf("Can't detach add_thread\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (pthread_create(&del_thread, NULL, del_thread_func, NULL)) {
+        printf("Can't create del_thread\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (pthread_detach(del_thread)) {
+        printf("Can't detach del_thread\n");
+        exit(EXIT_FAILURE);
+    }
+
+    while (1) {
+        /* Init */
+        urls_map_struct = array_hashmap_init(urls_map_size / step, 1, sizeof(url_data_t));
+        if (urls_map_struct == NULL) {
+            printf("Init error\n");
+            return EXIT_FAILURE;
+        }
+
+        array_hashmap_set_func(urls_map_struct, url_add_hash, url_add_cmp, url_find_hash,
+                               url_find_cmp, url_find_hash, url_find_cmp);
+        /* Init */
+
+        sleep(5);
+
+        printf("URLs in hashmap: %d\n", array_hashmap_get_size(urls_map_struct));
+
+        array_hashmap_del(&urls_map_struct);
     }
 
     printf("Success\n");
