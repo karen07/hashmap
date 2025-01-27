@@ -185,6 +185,8 @@ int32_t main(void)
     char *urls_random = NULL;
     char *url;
 
+    int32_t is_thread_safety;
+
     int64_t urls_file_size = 0;
 
     int32_t i = 0;
@@ -460,56 +462,61 @@ int32_t main(void)
         array_hashmap_del(&urls_map_struct);
     }
 
-    if (pthread_create(&add_thread, NULL, add_thread_func, NULL)) {
-        printf("Can't create add_thread\n");
-        exit(EXIT_FAILURE);
+    urls_map_struct = array_hashmap_init(urls_map_size, 1.0, sizeof(url_data_t));
+    if (urls_map_struct == NULL) {
+        printf("Init error\n");
+        return EXIT_FAILURE;
     }
 
-    if (pthread_detach(add_thread)) {
-        printf("Can't detach add_thread\n");
-        exit(EXIT_FAILURE);
-    }
+    is_thread_safety = array_hashmap_is_thread_safety(urls_map_struct);
 
-    if (pthread_create(&del_thread, NULL, del_thread_func, NULL)) {
-        printf("Can't create del_thread\n");
-        exit(EXIT_FAILURE);
-    }
+    array_hashmap_del(&urls_map_struct);
 
-    if (pthread_detach(del_thread)) {
-        printf("Can't detach del_thread\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (pthread_create(&find_thread, NULL, find_thread_func, NULL)) {
-        printf("Can't create find_thread\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (pthread_detach(find_thread)) {
-        printf("Can't detach find_thread\n");
-        exit(EXIT_FAILURE);
-    }
-
-    for (i = 0; i < 360; i++) {
-        /* Init */
-        urls_map_struct = array_hashmap_init(urls_map_size, 1.0, sizeof(url_data_t));
-        if (urls_map_struct == NULL) {
-            printf("Init error\n");
-            return EXIT_FAILURE;
+    if (is_thread_safety) {
+        if (pthread_create(&add_thread, NULL, add_thread_func, NULL)) {
+            printf("Can't create add_thread\n");
+            exit(EXIT_FAILURE);
         }
 
-        if (array_hashmap_is_thread_safety(urls_map_struct)) {
+        if (pthread_detach(add_thread)) {
+            printf("Can't detach add_thread\n");
+            exit(EXIT_FAILURE);
+        }
+
+        if (pthread_create(&del_thread, NULL, del_thread_func, NULL)) {
+            printf("Can't create del_thread\n");
+            exit(EXIT_FAILURE);
+        }
+
+        if (pthread_detach(del_thread)) {
+            printf("Can't detach del_thread\n");
+            exit(EXIT_FAILURE);
+        }
+
+        if (pthread_create(&find_thread, NULL, find_thread_func, NULL)) {
+            printf("Can't create find_thread\n");
+            exit(EXIT_FAILURE);
+        }
+
+        if (pthread_detach(find_thread)) {
+            printf("Can't detach find_thread\n");
+            exit(EXIT_FAILURE);
+        }
+
+        for (i = 0; i < 3600; i++) {
+            urls_map_struct = array_hashmap_init(urls_map_size, 1.0, sizeof(url_data_t));
+            if (urls_map_struct == NULL) {
+                printf("Init error\n");
+                return EXIT_FAILURE;
+            }
+
             array_hashmap_set_func(urls_map_struct, url_add_hash, url_add_cmp, url_find_hash,
                                    url_find_cmp, url_find_hash, url_find_cmp);
-            /* Init */
 
-            sleep(5);
+            sleep(1);
 
-            printf("URLs in hashmap: %d\n", array_hashmap_now_in_map(urls_map_struct));
-            fflush(stdout);
+            array_hashmap_del(&urls_map_struct);
         }
-
-        array_hashmap_del(&urls_map_struct);
     }
 
     printf("Success\n");
