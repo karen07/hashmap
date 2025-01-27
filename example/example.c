@@ -283,7 +283,7 @@ int32_t main(void)
         time_index = 0;
 
         /* Init */
-        urls_map_struct = array_hashmap_init(urls_map_size / step, 1, sizeof(url_data_t));
+        urls_map_struct = array_hashmap_init(urls_map_size / step, 1.0, sizeof(url_data_t));
         if (urls_map_struct == NULL) {
             printf("Init error\n");
             return EXIT_FAILURE;
@@ -492,7 +492,7 @@ int32_t main(void)
 
     while (1) {
         /* Init */
-        urls_map_struct = array_hashmap_init(urls_map_size / step, 1, sizeof(url_data_t));
+        urls_map_struct = array_hashmap_init(urls_map_size, 1.0, sizeof(url_data_t));
         if (urls_map_struct == NULL) {
             printf("Init error\n");
             return EXIT_FAILURE;
