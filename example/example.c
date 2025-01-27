@@ -7,9 +7,7 @@
 #include <errno.h>
 #include <string.h>
 #include <time.h>
-#ifdef THREAD_SAFETY
 #include <pthread.h>
-#endif
 
 #define FIRST_EXAMPLE_TIME 10
 #define SECOND_EXAMPLE_TIME 100
@@ -79,9 +77,9 @@ bool url_del_func(const void *del_elem_data)
     const url_data_t *elem = del_elem_data;
 
     if (elem->time > FIRST_EXAMPLE_TIME) {
-        return array_hashmap_save_new; /* FUCK */
+        return array_hashmap_del_by_func;
     } else {
-        return array_hashmap_save_old; /* FUCK */
+        return array_hashmap_not_del_by_func;
     }
 }
 
@@ -128,7 +126,7 @@ void *add_thread_func(__attribute__((unused)) void *arg)
         add_elem.url_pos = url_offsets[i];
         add_elem.time = FIRST_EXAMPLE_TIME;
 
-        array_hashmap_add_elem(urls_map_struct, &add_elem, NULL, NULL);
+        array_hashmap_add_elem(urls_map_struct, &add_elem, NULL, array_hashmap_save_old_func);
     }
 
     return NULL;
@@ -299,7 +297,8 @@ int32_t main(void)
             add_elem.url_pos = url_offsets[i];
             add_elem.time = FIRST_EXAMPLE_TIME;
 
-            add_res = array_hashmap_add_elem(urls_map_struct, &add_elem, NULL, NULL);
+            add_res = array_hashmap_add_elem(urls_map_struct, &add_elem, NULL,
+                                             array_hashmap_save_old_func);
             if (add_res != array_hashmap_elem_added) {
                 printf("Add values error\n");
                 return EXIT_FAILURE;
@@ -398,7 +397,7 @@ int32_t main(void)
                 return EXIT_FAILURE;
             }
         }
-        if (array_hashmap_get_size(urls_map_struct) != 0) {
+        if (array_hashmap_now_in_map(urls_map_struct) != 0) {
             printf("Check that everything is deleted error\n");
             return EXIT_FAILURE;
         }
@@ -409,7 +408,8 @@ int32_t main(void)
             add_elem.url_pos = url_offsets[i];
             add_elem.time = SECOND_EXAMPLE_TIME;
 
-            add_res = array_hashmap_add_elem(urls_map_struct, &add_elem, NULL, NULL);
+            add_res = array_hashmap_add_elem(urls_map_struct, &add_elem, NULL,
+                                             array_hashmap_save_old_func);
             if (add_res != array_hashmap_elem_added) {
                 printf("Add values error\n");
                 return EXIT_FAILURE;
@@ -444,7 +444,7 @@ int32_t main(void)
                 return EXIT_FAILURE;
             }
         }
-        if (array_hashmap_get_size(urls_map_struct) != 0) {
+        if (array_hashmap_now_in_map(urls_map_struct) != 0) {
             printf("Check that everything is deleted error\n");
             return EXIT_FAILURE;
         }
@@ -490,7 +490,7 @@ int32_t main(void)
         exit(EXIT_FAILURE);
     }
 
-    while (1) {
+    for (i = 0; i < 360; i++) {
         /* Init */
         urls_map_struct = array_hashmap_init(urls_map_size, 1.0, sizeof(url_data_t));
         if (urls_map_struct == NULL) {
@@ -498,14 +498,16 @@ int32_t main(void)
             return EXIT_FAILURE;
         }
 
-        array_hashmap_set_func(urls_map_struct, url_add_hash, url_add_cmp, url_find_hash,
-                               url_find_cmp, url_find_hash, url_find_cmp);
-        /* Init */
+        if (array_hashmap_is_thread_safety(urls_map_struct)) {
+            array_hashmap_set_func(urls_map_struct, url_add_hash, url_add_cmp, url_find_hash,
+                                   url_find_cmp, url_find_hash, url_find_cmp);
+            /* Init */
 
-        sleep(5);
+            sleep(5);
 
-        printf("URLs in hashmap: %d\n", array_hashmap_get_size(urls_map_struct));
-        fflush(stdout);
+            printf("URLs in hashmap: %d\n", array_hashmap_now_in_map(urls_map_struct));
+            fflush(stdout);
+        }
 
         array_hashmap_del(&urls_map_struct);
     }
