@@ -4,6 +4,7 @@
 #endif
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 typedef struct hashmap {
     char *map;
@@ -516,6 +517,11 @@ int32_t array_hashmap_del_elem_by_func(array_hashmap_t map_struct_c, del_func_t 
 void array_hashmap_del(array_hashmap_t *map_struct_c)
 {
     hashmap_t *map_struct = NULL;
+
+    if (!map_struct_c) {
+        return;
+    }
+
     map_struct = (hashmap_t *)(*map_struct_c);
     if (!map_struct) {
         return;
@@ -524,13 +530,12 @@ void array_hashmap_del(array_hashmap_t *map_struct_c)
     *map_struct_c = NULL;
 
 #ifdef THREAD_SAFETY
-    pthread_rwlock_wrlock(&map_struct->rwlock);
+    sleep(1);
 #endif
 
     free(map_struct->map);
 
 #ifdef THREAD_SAFETY
-    pthread_rwlock_unlock(&map_struct->rwlock);
     pthread_rwlock_destroy(&map_struct->rwlock);
 #endif
     free(map_struct);

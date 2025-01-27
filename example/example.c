@@ -505,6 +505,7 @@ int32_t main(void)
         sleep(5);
 
         printf("URLs in hashmap: %d\n", array_hashmap_get_size(urls_map_struct));
+        fflush(stdout);
 
         array_hashmap_del(&urls_map_struct);
     }
