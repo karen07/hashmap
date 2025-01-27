@@ -279,7 +279,7 @@ int32_t main(void)
            "Delete everything individually;"
            "Delete everything at once;\n");
 
-    for (step = 1.00; step > 0.49; step -= 0.01) {
+    for (step = 1.00; step > 0.01; step -= 0.01) {
         time_index = 0;
 
         /* Init */
