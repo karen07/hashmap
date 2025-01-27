@@ -270,16 +270,16 @@ int32_t main(void)
 
     printf("URLs count: %d\n", urls_map_size);
 
-    /* printf("Fullness;"
+    printf("Fullness;"
            "Add values;"
            "Check that all values are inserted;"
            "Check that there are no non-inserted elements;"
            "Update values;"
            "Check the updated values;"
            "Delete everything individually;"
-           "Delete everything at once;\n"); */
+           "Delete everything at once;\n");
 
-    for (step = 0.49; step > 0.49; step -= 0.01) {
+    for (step = 1.00; step > 0.49; step -= 0.01) {
         time_index = 0;
 
         /* Init */

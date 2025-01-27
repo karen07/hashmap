@@ -196,10 +196,7 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
         check_elem_index = index_add(check_elem_data);
 
         if (check_elem_index == add_elem_index) {
-            list_prev_elem_index = 0;
             list_elem_index = check_elem_index;
-            list_elem = NULL;
-            list_elem_data = NULL;
 
             do {
                 list_elem = elem_i(list_elem_index);
@@ -233,7 +230,6 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
 
             if (map_struct->now_in_map < map_struct->max_size) {
                 new_elem_index = list_elem_index;
-                new_elem = NULL;
 
                 do {
                     new_elem_index = (new_elem_index + 1) % map_struct->map_size;
@@ -265,7 +261,6 @@ int32_t array_hashmap_add_elem(array_hashmap_t map_struct_c, const void *add_ele
                 }
 
                 new_elem_index = add_elem_index;
-                new_elem = NULL;
 
                 do {
                     new_elem_index = (new_elem_index + 1) % map_struct->map_size;
