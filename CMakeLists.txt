@@ -15,9 +15,9 @@ target_link_libraries(hashmap_test hashmap)
 find_program(CLANGFORMAT clang-format)
 if(CLANGFORMAT)
     add_custom_command(TARGET hashmap_test PRE_BUILD
-        COMMAND clang-format -i ../test/*
+        COMMAND clang-format -i ${CMAKE_CURRENT_SOURCE_DIR}/test/*
     )
     add_custom_command(TARGET hashmap PRE_BUILD
-        COMMAND clang-format -i ../include/* ../src/*
+        COMMAND clang-format -i ${CMAKE_CURRENT_SOURCE_DIR}/include/* ${CMAKE_CURRENT_SOURCE_DIR}/src/*
     )
 endif()
