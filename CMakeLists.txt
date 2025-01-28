@@ -1,8 +1,23 @@
 cmake_minimum_required(VERSION 3.10)
-add_compile_options(-Wall -Wextra -Werror -Wpedantic -std=gnu89)
-include_directories(include) 
+
+project(hashmap)
+
+include_directories(include)
 add_library(hashmap STATIC src/array_hashmap.c)
-project(example)
-file(GLOB SRC "example/*.c")
-add_executable(example ${SRC})
-target_link_libraries(example hashmap)
+
+project(hashmap_test)
+
+add_compile_options(-Wall -Wextra -Werror -Wpedantic -std=gnu89)
+
+add_executable(hashmap_test test/test.c)
+target_link_libraries(hashmap_test hashmap)
+
+find_program(CLANGFORMAT clang-format)
+if(CLANGFORMAT)
+    add_custom_command(TARGET hashmap_test PRE_BUILD
+        COMMAND clang-format -i ../test/*
+    )
+    add_custom_command(TARGET hashmap PRE_BUILD
+        COMMAND clang-format -i ../include/* ../src/*
+    )
+endif()
