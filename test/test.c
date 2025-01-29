@@ -249,6 +249,8 @@ int32_t main(void)
         exit(EXIT_FAILURE);
     }
 
+    fclose(urls_fd);
+
     for (i = 0; i < urls_file_size; i++) {
         if (urls[i] == '\n') {
             urls[i] = 0;
@@ -518,6 +520,9 @@ int32_t main(void)
             array_hashmap_del(&urls_map_struct);
         }
     }
+
+    free(urls);
+    free(urls_random);
 
     printf("Success\n");
     return EXIT_SUCCESS;

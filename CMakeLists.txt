@@ -2,7 +2,20 @@ cmake_minimum_required(VERSION 3.10)
 
 project(hashmap)
 
+add_compile_options(-Wall -Wextra -Werror -Wpedantic -std=gnu89)
+add_link_options()
 include_directories(include)
+
+if(CMAKE_BUILD_TYPE MATCHES "Debug_ASan")
+    add_compile_options(-Og -g -fsanitize=address -fno-omit-frame-pointer)
+    add_link_options(-g -fsanitize=address)
+endif()
+
+if(CMAKE_BUILD_TYPE MATCHES "Debug_MSan")
+    add_compile_options(-Og -g -fsanitize=memory -fno-omit-frame-pointer)
+    add_link_options(-g -fsanitize=memory)
+endif()
+
 file(GLOB SRC_LIB "src/*.c")
 add_library(${PROJECT_NAME} STATIC ${SRC_LIB})
 
@@ -14,16 +27,6 @@ if(CLANGFORMAT)
 endif()
 
 project(hashmap_test)
-
-add_compile_options(-Wall -Wextra -Werror -Wpedantic -std=gnu89)
-add_link_options()
-include_directories(include)
-
-if(CMAKE_BUILD_TYPE MATCHES "Debug")
-    # -fsanitize=memory
-    add_compile_options(-Og -g -fsanitize=address -fno-omit-frame-pointer)
-    add_link_options(-fsanitize=address)
-endif()
 
 file(GLOB SRC "test/*.c")
 add_executable(${PROJECT_NAME} ${SRC})
