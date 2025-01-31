@@ -12,15 +12,15 @@
 #define FIRST_EXAMPLE_TIME 10
 #define SECOND_EXAMPLE_TIME 100
 
-typedef struct url_data {
-    uint32_t url_pos;
+typedef struct domain_data {
+    uint32_t domain_pos;
     int32_t time;
-} url_data_t;
+} domain_data_t;
 
-char *urls;
-int32_t *url_offsets = NULL;
-int32_t urls_map_size = 0;
-array_hashmap_t urls_map_struct = NULL;
+char *domains;
+int32_t *domain_offsets = NULL;
+int32_t domains_map_size = 0;
+array_hashmap_t domains_map_struct = NULL;
 
 hash djb33_hash(const char *s)
 {
@@ -32,38 +32,38 @@ hash djb33_hash(const char *s)
     return h;
 }
 
-hash url_add_hash(const void *add_elem_data)
+hash domain_add_hash(const void *add_elem_data)
 {
-    const url_data_t *elem = add_elem_data;
-    return djb33_hash(&urls[elem->url_pos]);
+    const domain_data_t *elem = add_elem_data;
+    return djb33_hash(&domains[elem->domain_pos]);
 }
 
-bool url_add_cmp(const void *add_elem_data, const void *hashmap_elem_data)
+bool domain_add_cmp(const void *add_elem_data, const void *hashmap_elem_data)
 {
-    const url_data_t *elem1 = add_elem_data;
-    const url_data_t *elem2 = hashmap_elem_data;
+    const domain_data_t *elem1 = add_elem_data;
+    const domain_data_t *elem2 = hashmap_elem_data;
 
-    return !strcmp(&urls[elem1->url_pos], &urls[elem2->url_pos]);
+    return !strcmp(&domains[elem1->domain_pos], &domains[elem2->domain_pos]);
 }
 
-hash url_find_hash(const void *find_elem_data)
+hash domain_find_hash(const void *find_elem_data)
 {
     const char *elem = find_elem_data;
     return djb33_hash(elem);
 }
 
-bool url_find_cmp(const void *find_elem_data, const void *hashmap_elem_data)
+bool domain_find_cmp(const void *find_elem_data, const void *hashmap_elem_data)
 {
     const char *elem1 = find_elem_data;
-    const url_data_t *elem2 = hashmap_elem_data;
+    const domain_data_t *elem2 = hashmap_elem_data;
 
-    return !strcmp(elem1, &urls[elem2->url_pos]);
+    return !strcmp(elem1, &domains[elem2->domain_pos]);
 }
 
-bool url_on_already_in(const void *add_elem_data, const void *hashmap_elem_data)
+bool domain_on_already_in(const void *add_elem_data, const void *hashmap_elem_data)
 {
-    const url_data_t *elem1 = add_elem_data;
-    const url_data_t *elem2 = hashmap_elem_data;
+    const domain_data_t *elem1 = add_elem_data;
+    const domain_data_t *elem2 = hashmap_elem_data;
 
     if (elem1->time > elem2->time) {
         return array_hashmap_save_new;
@@ -72,9 +72,9 @@ bool url_on_already_in(const void *add_elem_data, const void *hashmap_elem_data)
     }
 }
 
-bool url_del_func(const void *del_elem_data)
+bool domain_del_func(const void *del_elem_data)
 {
-    const url_data_t *elem = del_elem_data;
+    const domain_data_t *elem = del_elem_data;
 
     if (elem->time > FIRST_EXAMPLE_TIME) {
         return array_hashmap_del_by_func;
@@ -118,15 +118,15 @@ void random_permutation(int32_t *array, int32_t size)
 void *add_thread_func(__attribute__((unused)) void *arg)
 {
     int32_t i = 0;
-    url_data_t add_elem;
+    domain_data_t add_elem;
 
     while (1) {
-        i = rand() % urls_map_size;
+        i = rand() % domains_map_size;
 
-        add_elem.url_pos = url_offsets[i];
+        add_elem.domain_pos = domain_offsets[i];
         add_elem.time = FIRST_EXAMPLE_TIME;
 
-        array_hashmap_add_elem(urls_map_struct, &add_elem, NULL, array_hashmap_save_old_func);
+        array_hashmap_add_elem(domains_map_struct, &add_elem, NULL, array_hashmap_save_old_func);
     }
 
     return NULL;
@@ -135,14 +135,14 @@ void *add_thread_func(__attribute__((unused)) void *arg)
 void *del_thread_func(__attribute__((unused)) void *arg)
 {
     int32_t i = 0;
-    char *url;
+    char *domain;
 
     while (1) {
-        i = rand() % urls_map_size;
+        i = rand() % domains_map_size;
 
-        url = &urls[url_offsets[i]];
+        domain = &domains[domain_offsets[i]];
 
-        array_hashmap_del_elem(urls_map_struct, url, NULL);
+        array_hashmap_del_elem(domains_map_struct, domain, NULL);
     }
 
     return NULL;
@@ -151,55 +151,55 @@ void *del_thread_func(__attribute__((unused)) void *arg)
 void *find_thread_func(__attribute__((unused)) void *arg)
 {
     int32_t i = 0;
-    char *url;
+    char *domain;
 
     while (1) {
-        i = rand() % urls_map_size;
+        i = rand() % domains_map_size;
 
-        url = &urls[url_offsets[i]];
+        domain = &domains[domain_offsets[i]];
 
-        array_hashmap_find_elem(urls_map_struct, url, NULL);
+        array_hashmap_find_elem(domains_map_struct, domain, NULL);
     }
 
     return NULL;
 }
 
-#define TIMER_START()                                   \
-    {                                                   \
-        random_permutation(url_offsets, urls_map_size); \
-        clean_cache();                                  \
-        gettimeofday(&now_timeval_start, NULL);         \
+#define TIMER_START()                                         \
+    {                                                         \
+        random_permutation(domain_offsets, domains_map_size); \
+        clean_cache();                                        \
+        gettimeofday(&now_timeval_start, NULL);               \
     }
 
-#define TIMER_END()                                                                          \
-    {                                                                                        \
-        gettimeofday(&now_timeval_end, NULL);                                                \
-        now_us_start = now_timeval_start.tv_sec * 1000000 + now_timeval_start.tv_usec;       \
-        now_us_end = now_timeval_end.tv_sec * 1000000 + now_timeval_end.tv_usec;             \
-        one_op_time_ns[time_index++] = ((now_us_end - now_us_start) * 1000) / urls_map_size; \
+#define TIMER_END()                                                                             \
+    {                                                                                           \
+        gettimeofday(&now_timeval_end, NULL);                                                   \
+        now_us_start = now_timeval_start.tv_sec * 1000000 + now_timeval_start.tv_usec;          \
+        now_us_end = now_timeval_end.tv_sec * 1000000 + now_timeval_end.tv_usec;                \
+        one_op_time_ns[time_index++] = ((now_us_end - now_us_start) * 1000) / domains_map_size; \
     }
 
 int32_t main(void)
 {
-    FILE *urls_fd = NULL;
-    char *urls_random = NULL;
-    char *url;
+    FILE *domains_fd = NULL;
+    char *domains_random = NULL;
+    char *domain;
 
     int32_t is_thread_safety;
 
-    int64_t urls_file_size = 0;
+    int64_t domains_file_size = 0;
 
     int32_t i = 0;
 
     double step = 0;
 
-    url_data_t add_elem;
+    domain_data_t add_elem;
     int32_t add_res;
 
-    url_data_t find_elem;
+    domain_data_t find_elem;
     int32_t find_res;
 
-    url_data_t del_elem;
+    domain_data_t del_elem;
     int32_t del_res;
 
     int32_t del_elem_by_func_res;
@@ -217,60 +217,60 @@ int32_t main(void)
     pthread_t del_thread;
     pthread_t find_thread;
 
-    urls_fd = fopen("urls", "r");
-    if (urls_fd == NULL) {
-        printf("Can't open urls file\n");
+    domains_fd = fopen("domains", "r");
+    if (domains_fd == NULL) {
+        printf("Can't open domains file\n");
         exit(EXIT_FAILURE);
     }
 
-    fseek(urls_fd, 0, SEEK_END);
-    urls_file_size = ftell(urls_fd);
-    fseek(urls_fd, 0, SEEK_SET);
+    fseek(domains_fd, 0, SEEK_END);
+    domains_file_size = ftell(domains_fd);
+    fseek(domains_fd, 0, SEEK_SET);
 
-    if (urls_file_size == 0) {
+    if (domains_file_size == 0) {
         printf("Empty file\n");
         exit(EXIT_FAILURE);
     }
 
-    urls = malloc(urls_file_size);
-    if (urls == NULL) {
-        printf("No free memory for urls\n");
+    domains = malloc(domains_file_size);
+    if (domains == NULL) {
+        printf("No free memory for domains\n");
         exit(EXIT_FAILURE);
     }
 
-    urls_random = malloc(urls_file_size);
-    if (urls_random == NULL) {
-        printf("No free memory for urls_random\n");
+    domains_random = malloc(domains_file_size);
+    if (domains_random == NULL) {
+        printf("No free memory for domains_random\n");
         exit(EXIT_FAILURE);
     }
 
-    if (fread(urls, urls_file_size, 1, urls_fd) != 1) {
-        printf("Can't read url file\n");
+    if (fread(domains, domains_file_size, 1, domains_fd) != 1) {
+        printf("Can't read domain file\n");
         exit(EXIT_FAILURE);
     }
 
-    fclose(urls_fd);
+    fclose(domains_fd);
 
-    for (i = 0; i < urls_file_size; i++) {
-        if (urls[i] == '\n') {
-            urls[i] = 0;
-            urls_map_size++;
+    for (i = 0; i < domains_file_size; i++) {
+        if (domains[i] == '\n') {
+            domains[i] = 0;
+            domains_map_size++;
         }
     }
 
-    url_offsets = (int32_t *)malloc(urls_map_size * sizeof(int32_t));
-    url_offsets[0] = 0;
+    domain_offsets = (int32_t *)malloc(domains_map_size * sizeof(int32_t));
+    domain_offsets[0] = 0;
 
-    for (i = 0; i < urls_map_size - 1; i++) {
-        url_offsets[i + 1] = strchr(&urls[url_offsets[i] + 1], 0) - urls + 1;
+    for (i = 0; i < domains_map_size - 1; i++) {
+        domain_offsets[i + 1] = strchr(&domains[domain_offsets[i] + 1], 0) - domains + 1;
     }
 
-    memcpy(urls_random, urls, (int32_t)urls_file_size);
-    for (i = 0; i < urls_map_size; i++) {
-        urls_random[url_offsets[i]] = '&';
+    memcpy(domains_random, domains, (int32_t)domains_file_size);
+    for (i = 0; i < domains_map_size; i++) {
+        domains_random[domain_offsets[i]] = '&';
     }
 
-    printf("URLs count: %d\n", urls_map_size);
+    printf("Domains count: %d\n", domains_map_size);
 
     printf("Fullness;"
            "Add values;"
@@ -285,23 +285,25 @@ int32_t main(void)
         time_index = 0;
 
         /* Init */
-        urls_map_struct = array_hashmap_init(urls_map_size / step, 1.0, sizeof(url_data_t));
-        if (urls_map_struct == NULL) {
+        domains_map_struct =
+            array_hashmap_init(domains_map_size / step, 1.0, sizeof(domain_data_t));
+        if (domains_map_struct == NULL) {
             printf("Init error\n");
             return EXIT_FAILURE;
         }
 
-        array_hashmap_set_func(urls_map_struct, url_add_hash, url_add_cmp, url_find_hash,
-                               url_find_cmp, url_find_hash, url_find_cmp);
+        array_hashmap_set_func(domains_map_struct, domain_add_hash, domain_add_cmp,
+                               domain_find_hash, domain_find_cmp, domain_find_hash,
+                               domain_find_cmp);
         /* Init */
 
         /* Add values */
         TIMER_START();
-        for (i = 0; i < urls_map_size; i++) {
-            add_elem.url_pos = url_offsets[i];
+        for (i = 0; i < domains_map_size; i++) {
+            add_elem.domain_pos = domain_offsets[i];
             add_elem.time = FIRST_EXAMPLE_TIME;
 
-            add_res = array_hashmap_add_elem(urls_map_struct, &add_elem, NULL,
+            add_res = array_hashmap_add_elem(domains_map_struct, &add_elem, NULL,
                                              array_hashmap_save_old_func);
             if (add_res != array_hashmap_elem_added) {
                 printf("Add values error\n");
@@ -313,11 +315,11 @@ int32_t main(void)
 
         /* Check that all values are inserted */
         TIMER_START();
-        for (i = 0; i < urls_map_size; i++) {
-            url = &urls[url_offsets[i]];
-            find_elem.url_pos = 0;
+        for (i = 0; i < domains_map_size; i++) {
+            domain = &domains[domain_offsets[i]];
+            find_elem.domain_pos = 0;
             find_elem.time = 0;
-            find_res = array_hashmap_find_elem(urls_map_struct, url, &find_elem);
+            find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
             if (find_res != array_hashmap_elem_finded || find_elem.time != FIRST_EXAMPLE_TIME) {
                 printf("Check that all values are inserted error\n");
                 return EXIT_FAILURE;
@@ -328,9 +330,9 @@ int32_t main(void)
 
         /* Check that there are no non-inserted elements */
         TIMER_START();
-        for (i = 0; i < urls_map_size; i++) {
-            url = &urls_random[url_offsets[i]];
-            find_res = array_hashmap_find_elem(urls_map_struct, url, &find_elem);
+        for (i = 0; i < domains_map_size; i++) {
+            domain = &domains_random[domain_offsets[i]];
+            find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
                 printf("Check that there are no non-inserted elements error\n");
                 return EXIT_FAILURE;
@@ -341,11 +343,12 @@ int32_t main(void)
 
         /* Update values */
         TIMER_START();
-        for (i = 0; i < urls_map_size; i++) {
-            add_elem.url_pos = url_offsets[i];
+        for (i = 0; i < domains_map_size; i++) {
+            add_elem.domain_pos = domain_offsets[i];
             add_elem.time = SECOND_EXAMPLE_TIME;
 
-            add_res = array_hashmap_add_elem(urls_map_struct, &add_elem, NULL, url_on_already_in);
+            add_res =
+                array_hashmap_add_elem(domains_map_struct, &add_elem, NULL, domain_on_already_in);
             if (add_res != array_hashmap_elem_already_in) {
                 printf("Update values error\n");
                 return EXIT_FAILURE;
@@ -356,11 +359,11 @@ int32_t main(void)
 
         /* Check the updated values */
         TIMER_START();
-        for (i = 0; i < urls_map_size; i++) {
-            url = &urls[url_offsets[i]];
-            find_elem.url_pos = 0;
+        for (i = 0; i < domains_map_size; i++) {
+            domain = &domains[domain_offsets[i]];
+            find_elem.domain_pos = 0;
             find_elem.time = 0;
-            find_res = array_hashmap_find_elem(urls_map_struct, url, &find_elem);
+            find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
             if (find_res != array_hashmap_elem_finded || find_elem.time != SECOND_EXAMPLE_TIME) {
                 printf("Check the updated values error\n");
                 return EXIT_FAILURE;
@@ -371,11 +374,11 @@ int32_t main(void)
 
         /* Delete everything individually */
         TIMER_START();
-        for (i = 0; i < urls_map_size; i++) {
-            url = &urls[url_offsets[i]];
-            del_elem.url_pos = 0;
+        for (i = 0; i < domains_map_size; i++) {
+            domain = &domains[domain_offsets[i]];
+            del_elem.domain_pos = 0;
             del_elem.time = 0;
-            del_res = array_hashmap_del_elem(urls_map_struct, url, &del_elem);
+            del_res = array_hashmap_del_elem(domains_map_struct, domain, &del_elem);
             if (del_res != array_hashmap_elem_deled || del_elem.time != SECOND_EXAMPLE_TIME) {
                 printf("Delete everything individually error\n");
                 return EXIT_FAILURE;
@@ -385,34 +388,34 @@ int32_t main(void)
         /* Delete everything individually */
 
         /* Check that everything is deleted */
-        for (i = 0; i < urls_map_size; i++) {
-            url = &urls[url_offsets[i]];
-            find_res = array_hashmap_find_elem(urls_map_struct, url, &find_elem);
+        for (i = 0; i < domains_map_size; i++) {
+            domain = &domains[domain_offsets[i]];
+            find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
                 printf("Check that everything is deleted error\n");
                 return EXIT_FAILURE;
             }
         }
-        for (i = 0; i < urls_map_size; i++) {
-            url = &urls_random[url_offsets[i]];
-            find_res = array_hashmap_find_elem(urls_map_struct, url, &find_elem);
+        for (i = 0; i < domains_map_size; i++) {
+            domain = &domains_random[domain_offsets[i]];
+            find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
                 printf("Check that everything is deleted error\n");
                 return EXIT_FAILURE;
             }
         }
-        if (array_hashmap_now_in_map(urls_map_struct) != 0) {
+        if (array_hashmap_now_in_map(domains_map_struct) != 0) {
             printf("Check that everything is deleted error\n");
             return EXIT_FAILURE;
         }
         /* Check that everything is deleted */
 
         /* Add values */
-        for (i = 0; i < urls_map_size; i++) {
-            add_elem.url_pos = url_offsets[i];
+        for (i = 0; i < domains_map_size; i++) {
+            add_elem.domain_pos = domain_offsets[i];
             add_elem.time = SECOND_EXAMPLE_TIME;
 
-            add_res = array_hashmap_add_elem(urls_map_struct, &add_elem, NULL,
+            add_res = array_hashmap_add_elem(domains_map_struct, &add_elem, NULL,
                                              array_hashmap_save_old_func);
             if (add_res != array_hashmap_elem_added) {
                 printf("Add values error\n");
@@ -423,8 +426,8 @@ int32_t main(void)
 
         /* Delete everything at once */
         TIMER_START();
-        del_elem_by_func_res = array_hashmap_del_elem_by_func(urls_map_struct, url_del_func);
-        if (del_elem_by_func_res != urls_map_size) {
+        del_elem_by_func_res = array_hashmap_del_elem_by_func(domains_map_struct, domain_del_func);
+        if (del_elem_by_func_res != domains_map_size) {
             printf("Delete everything at once error\n");
             return EXIT_FAILURE;
         }
@@ -432,23 +435,23 @@ int32_t main(void)
         /* Delete everything at once */
 
         /* Check that everything is deleted */
-        for (i = 0; i < urls_map_size; i++) {
-            url = &urls[url_offsets[i]];
-            find_res = array_hashmap_find_elem(urls_map_struct, url, &find_elem);
+        for (i = 0; i < domains_map_size; i++) {
+            domain = &domains[domain_offsets[i]];
+            find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
                 printf("Check that everything is deleted error\n");
                 return EXIT_FAILURE;
             }
         }
-        for (i = 0; i < urls_map_size; i++) {
-            url = &urls_random[url_offsets[i]];
-            find_res = array_hashmap_find_elem(urls_map_struct, url, &find_elem);
+        for (i = 0; i < domains_map_size; i++) {
+            domain = &domains_random[domain_offsets[i]];
+            find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
                 printf("Check that everything is deleted error\n");
                 return EXIT_FAILURE;
             }
         }
-        if (array_hashmap_now_in_map(urls_map_struct) != 0) {
+        if (array_hashmap_now_in_map(domains_map_struct) != 0) {
             printf("Check that everything is deleted error\n");
             return EXIT_FAILURE;
         }
@@ -461,18 +464,18 @@ int32_t main(void)
         printf("\n");
         fflush(stdout);
 
-        array_hashmap_del(&urls_map_struct);
+        array_hashmap_del(&domains_map_struct);
     }
 
-    urls_map_struct = array_hashmap_init(urls_map_size, 1.0, sizeof(url_data_t));
-    if (urls_map_struct == NULL) {
+    domains_map_struct = array_hashmap_init(domains_map_size, 1.0, sizeof(domain_data_t));
+    if (domains_map_struct == NULL) {
         printf("Init error\n");
         return EXIT_FAILURE;
     }
 
-    is_thread_safety = array_hashmap_is_thread_safety(urls_map_struct);
+    is_thread_safety = array_hashmap_is_thread_safety(domains_map_struct);
 
-    array_hashmap_del(&urls_map_struct);
+    array_hashmap_del(&domains_map_struct);
 
     if (is_thread_safety) {
         if (pthread_create(&add_thread, NULL, add_thread_func, NULL)) {
@@ -506,23 +509,24 @@ int32_t main(void)
         }
 
         for (i = 0; i < 3600; i++) {
-            urls_map_struct = array_hashmap_init(urls_map_size, 1.0, sizeof(url_data_t));
-            if (urls_map_struct == NULL) {
+            domains_map_struct = array_hashmap_init(domains_map_size, 1.0, sizeof(domain_data_t));
+            if (domains_map_struct == NULL) {
                 printf("Init error\n");
                 return EXIT_FAILURE;
             }
 
-            array_hashmap_set_func(urls_map_struct, url_add_hash, url_add_cmp, url_find_hash,
-                                   url_find_cmp, url_find_hash, url_find_cmp);
+            array_hashmap_set_func(domains_map_struct, domain_add_hash, domain_add_cmp,
+                                   domain_find_hash, domain_find_cmp, domain_find_hash,
+                                   domain_find_cmp);
 
             sleep(1);
 
-            array_hashmap_del(&urls_map_struct);
+            array_hashmap_del(&domains_map_struct);
         }
     }
 
-    free(urls);
-    free(urls_random);
+    free(domains);
+    free(domains_random);
 
     printf("Success\n");
     return EXIT_SUCCESS;
