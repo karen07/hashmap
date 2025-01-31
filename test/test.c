@@ -9,8 +9,8 @@
 #include <time.h>
 #include <pthread.h>
 
-#define FIRST_EXAMPLE_TIME 10
-#define SECOND_EXAMPLE_TIME 100
+#define FIRST_TEST_TIME 10
+#define SECOND_TEST_TIME 100
 
 typedef struct domain_data {
     uint32_t domain_pos;
@@ -76,7 +76,7 @@ bool domain_del_func(const void *del_elem_data)
 {
     const domain_data_t *elem = del_elem_data;
 
-    if (elem->time > FIRST_EXAMPLE_TIME) {
+    if (elem->time > FIRST_TEST_TIME) {
         return array_hashmap_del_by_func;
     } else {
         return array_hashmap_not_del_by_func;
@@ -124,7 +124,7 @@ void *add_thread_func(__attribute__((unused)) void *arg)
         i = rand() % domains_map_size;
 
         add_elem.domain_pos = domain_offsets[i];
-        add_elem.time = FIRST_EXAMPLE_TIME;
+        add_elem.time = FIRST_TEST_TIME;
 
         array_hashmap_add_elem(domains_map_struct, &add_elem, NULL, array_hashmap_save_old_func);
     }
@@ -301,7 +301,7 @@ int32_t main(void)
         TIMER_START();
         for (i = 0; i < domains_map_size; i++) {
             add_elem.domain_pos = domain_offsets[i];
-            add_elem.time = FIRST_EXAMPLE_TIME;
+            add_elem.time = FIRST_TEST_TIME;
 
             add_res = array_hashmap_add_elem(domains_map_struct, &add_elem, NULL,
                                              array_hashmap_save_old_func);
@@ -320,7 +320,7 @@ int32_t main(void)
             find_elem.domain_pos = 0;
             find_elem.time = 0;
             find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
-            if (find_res != array_hashmap_elem_finded || find_elem.time != FIRST_EXAMPLE_TIME) {
+            if (find_res != array_hashmap_elem_finded || find_elem.time != FIRST_TEST_TIME) {
                 printf("Check that all values are inserted error\n");
                 return EXIT_FAILURE;
             }
@@ -345,7 +345,7 @@ int32_t main(void)
         TIMER_START();
         for (i = 0; i < domains_map_size; i++) {
             add_elem.domain_pos = domain_offsets[i];
-            add_elem.time = SECOND_EXAMPLE_TIME;
+            add_elem.time = SECOND_TEST_TIME;
 
             add_res =
                 array_hashmap_add_elem(domains_map_struct, &add_elem, NULL, domain_on_already_in);
@@ -364,7 +364,7 @@ int32_t main(void)
             find_elem.domain_pos = 0;
             find_elem.time = 0;
             find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
-            if (find_res != array_hashmap_elem_finded || find_elem.time != SECOND_EXAMPLE_TIME) {
+            if (find_res != array_hashmap_elem_finded || find_elem.time != SECOND_TEST_TIME) {
                 printf("Check the updated values error\n");
                 return EXIT_FAILURE;
             }
@@ -379,7 +379,7 @@ int32_t main(void)
             del_elem.domain_pos = 0;
             del_elem.time = 0;
             del_res = array_hashmap_del_elem(domains_map_struct, domain, &del_elem);
-            if (del_res != array_hashmap_elem_deled || del_elem.time != SECOND_EXAMPLE_TIME) {
+            if (del_res != array_hashmap_elem_deled || del_elem.time != SECOND_TEST_TIME) {
                 printf("Delete everything individually error\n");
                 return EXIT_FAILURE;
             }
@@ -413,7 +413,7 @@ int32_t main(void)
         /* Add values */
         for (i = 0; i < domains_map_size; i++) {
             add_elem.domain_pos = domain_offsets[i];
-            add_elem.time = SECOND_EXAMPLE_TIME;
+            add_elem.time = SECOND_TEST_TIME;
 
             add_res = array_hashmap_add_elem(domains_map_struct, &add_elem, NULL,
                                              array_hashmap_save_old_func);
