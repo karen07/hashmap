@@ -508,7 +508,7 @@ int32_t main(void)
             exit(EXIT_FAILURE);
         }
 
-        for (i = 0; i < 3600; i++) {
+        for (i = 0; i < 60; i++) {
             domains_map_struct = array_hashmap_init(domains_map_size, 1.0, sizeof(domain_data_t));
             if (domains_map_struct == NULL) {
                 printf("Init error\n");

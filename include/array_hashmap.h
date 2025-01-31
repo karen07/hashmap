@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+/* #define THREAD_SAFETY */
+
 #define array_hashmap_save_new 1
 #define array_hashmap_save_old 0
 #define array_hashmap_save_new_func (on_already_in_t)1
