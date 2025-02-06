@@ -8,3 +8,5 @@ To build the thread safety version, you must pass define `THREAD_SAFETY`.
 This hash map use list over array on collision. Hash map structure add `int32_t next` to input type.
 ## Usage
 All functions usage examples in [test.c](test/test.c).
+## Article
+You can read about the method in the [article](https://habr.com/ru/articles/878850/).
