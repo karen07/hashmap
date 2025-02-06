@@ -22,7 +22,7 @@ int32_t *domain_offsets = NULL;
 int32_t domains_map_size = 0;
 array_hashmap_t domains_map_struct = NULL;
 
-hash djb33_hash(const char *s)
+array_hashmap_hash djb33_hash(const char *s)
 {
     uint32_t h = 5381;
     while (*s) {
@@ -32,13 +32,13 @@ hash djb33_hash(const char *s)
     return h;
 }
 
-hash domain_add_hash(const void *add_elem_data)
+array_hashmap_hash domain_add_hash(const void *add_elem_data)
 {
     const domain_data_t *elem = add_elem_data;
     return djb33_hash(&domains[elem->domain_pos]);
 }
 
-bool domain_add_cmp(const void *add_elem_data, const void *hashmap_elem_data)
+array_hashmap_bool domain_add_cmp(const void *add_elem_data, const void *hashmap_elem_data)
 {
     const domain_data_t *elem1 = add_elem_data;
     const domain_data_t *elem2 = hashmap_elem_data;
@@ -46,13 +46,13 @@ bool domain_add_cmp(const void *add_elem_data, const void *hashmap_elem_data)
     return !strcmp(&domains[elem1->domain_pos], &domains[elem2->domain_pos]);
 }
 
-hash domain_find_hash(const void *find_elem_data)
+array_hashmap_hash domain_find_hash(const void *find_elem_data)
 {
     const char *elem = find_elem_data;
     return djb33_hash(elem);
 }
 
-bool domain_find_cmp(const void *find_elem_data, const void *hashmap_elem_data)
+array_hashmap_bool domain_find_cmp(const void *find_elem_data, const void *hashmap_elem_data)
 {
     const char *elem1 = find_elem_data;
     const domain_data_t *elem2 = hashmap_elem_data;
@@ -60,7 +60,7 @@ bool domain_find_cmp(const void *find_elem_data, const void *hashmap_elem_data)
     return !strcmp(elem1, &domains[elem2->domain_pos]);
 }
 
-bool domain_on_already_in(const void *add_elem_data, const void *hashmap_elem_data)
+array_hashmap_bool domain_on_already_in(const void *add_elem_data, const void *hashmap_elem_data)
 {
     const domain_data_t *elem1 = add_elem_data;
     const domain_data_t *elem2 = hashmap_elem_data;
@@ -72,7 +72,7 @@ bool domain_on_already_in(const void *add_elem_data, const void *hashmap_elem_da
     }
 }
 
-bool domain_del_func(const void *del_elem_data)
+array_hashmap_bool domain_del_func(const void *del_elem_data)
 {
     const domain_data_t *elem = del_elem_data;
 

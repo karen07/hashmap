@@ -13,19 +13,20 @@
 #define array_hashmap_del_by_func 1
 #define array_hashmap_not_del_by_func 0
 
-typedef int32_t bool;
-typedef uint32_t hash;
-typedef int32_t deled_count;
+typedef int32_t array_hashmap_bool;
+typedef uint32_t array_hashmap_hash;
+typedef int32_t array_hashmap_deled_count;
 typedef const void *array_hashmap_t;
 
-typedef hash (*add_hash_t)(const void *add_elem_data);
-typedef bool (*add_cmp_t)(const void *add_elem_data, const void *hashmap_elem_data);
-typedef hash (*find_hash_t)(const void *find_elem_data);
-typedef bool (*find_cmp_t)(const void *find_elem_data, const void *hashmap_elem_data);
-typedef hash (*del_hash_t)(const void *del_elem_data);
-typedef bool (*del_cmp_t)(const void *del_elem_data, const void *hashmap_elem_data);
-typedef bool (*on_already_in_t)(const void *add_elem_data, const void *hashmap_elem_data);
-typedef bool (*del_func_t)(const void *del_elem_data);
+typedef array_hashmap_hash (*add_hash_t)(const void *add_elem_data);
+typedef array_hashmap_bool (*add_cmp_t)(const void *add_elem_data, const void *hashmap_elem_data);
+typedef array_hashmap_hash (*find_hash_t)(const void *find_elem_data);
+typedef array_hashmap_bool (*find_cmp_t)(const void *find_elem_data, const void *hashmap_elem_data);
+typedef array_hashmap_hash (*del_hash_t)(const void *del_elem_data);
+typedef array_hashmap_bool (*del_cmp_t)(const void *del_elem_data, const void *hashmap_elem_data);
+typedef array_hashmap_bool (*on_already_in_t)(const void *add_elem_data,
+                                              const void *hashmap_elem_data);
+typedef array_hashmap_bool (*del_func_t)(const void *del_elem_data);
 
 typedef enum array_hashmap_ret {
     array_hashmap_empty_args = -3,
@@ -46,7 +47,7 @@ void array_hashmap_set_func(array_hashmap_t, add_hash_t, add_cmp_t, find_hash_t,
                             del_hash_t, del_cmp_t);
 
 int32_t array_hashmap_now_in_map(array_hashmap_t map_struct_c);
-bool array_hashmap_is_thread_safety(array_hashmap_t map_struct_c);
+array_hashmap_bool array_hashmap_is_thread_safety(array_hashmap_t map_struct_c);
 
 array_hashmap_ret_t array_hashmap_add_elem(array_hashmap_t, const void *add_elem_data,
                                            void *res_elem_data, on_already_in_t);
@@ -54,6 +55,6 @@ array_hashmap_ret_t array_hashmap_find_elem(array_hashmap_t, const void *find_el
                                             void *res_elem_data);
 array_hashmap_ret_t array_hashmap_del_elem(array_hashmap_t, const void *del_elem_data,
                                            void *res_elem_data);
-deled_count array_hashmap_del_elem_by_func(array_hashmap_t, del_func_t);
+array_hashmap_deled_count array_hashmap_del_elem_by_func(array_hashmap_t, del_func_t);
 
 #endif

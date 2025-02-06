@@ -19,7 +19,7 @@ typedef struct hashmap {
     find_cmp_t find_cmp;
     del_hash_t del_hash;
     del_cmp_t del_cmp;
-    bool is_thread_safety;
+    array_hashmap_bool is_thread_safety;
 #ifdef THREAD_SAFETY
     pthread_rwlock_t rwlock;
 #endif
@@ -142,7 +142,7 @@ int32_t array_hashmap_now_in_map(array_hashmap_t map_struct_c)
     return map_struct->now_in_map;
 }
 
-bool array_hashmap_is_thread_safety(array_hashmap_t map_struct_c)
+array_hashmap_bool array_hashmap_is_thread_safety(array_hashmap_t map_struct_c)
 {
     hashmap_t *map_struct = NULL;
     map_struct = (hashmap_t *)map_struct_c;
@@ -444,7 +444,8 @@ array_hashmap_ret_t array_hashmap_del_elem(array_hashmap_t map_struct_c, const v
     return array_hashmap_elem_not_deled;
 }
 
-deled_count array_hashmap_del_elem_by_func(array_hashmap_t map_struct_c, del_func_t del_func)
+array_hashmap_deled_count array_hashmap_del_elem_by_func(array_hashmap_t map_struct_c,
+                                                         del_func_t del_func)
 {
     int32_t del_count = 0;
     int32_t i = 0;
