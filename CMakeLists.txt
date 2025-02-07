@@ -32,8 +32,6 @@ file(GLOB SRC "test/*.c")
 add_executable(${PROJECT_NAME} ${SRC})
 target_link_libraries(${PROJECT_NAME} hashmap)
 
-install(TARGETS ${PROJECT_NAME} DESTINATION /usr/bin)
-
 find_program(CLANGFORMAT clang-format)
 if(CLANGFORMAT)
     add_custom_command(TARGET ${PROJECT_NAME} PRE_BUILD
