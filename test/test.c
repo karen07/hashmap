@@ -9,6 +9,8 @@
 #include <time.h>
 #include <pthread.h>
 
+#define THREAD_COUNT 4
+
 #define FIRST_TEST_TIME 10
 #define SECOND_TEST_TIME 100
 
@@ -17,10 +19,14 @@ typedef struct domain_data {
     int32_t time;
 } domain_data_t;
 
-char *domains;
+char *domains = NULL;
+char *domains_random = NULL;
 int32_t *domain_offsets = NULL;
 int32_t domains_map_size = 0;
 array_hashmap_t domains_map_struct = NULL;
+
+pthread_barrier_t threads_barrier_start;
+pthread_barrier_t threads_barrier_end;
 
 array_hashmap_hash djb33_hash(const char *s)
 {
@@ -130,11 +136,6 @@ void random_permutation(int32_t *array, int32_t size)
         one_op_time_ns[time_index++] = ((now_us_end - now_us_start) * 1000) / domains_map_size; \
     }
 
-pthread_barrier_t threads_barrier_start;
-pthread_barrier_t threads_barrier_end;
-
-#define THREAD_COUNT 2
-
 void *add_thread_func(void *arg)
 {
     int32_t i = 0;
@@ -193,10 +194,36 @@ void *find_thread_func(void *arg)
     return NULL;
 }
 
+void *no_find_thread_func(void *arg)
+{
+    int32_t i = 0;
+    domain_data_t find_elem;
+    int32_t find_res;
+    int32_t thread_num;
+    char *domain;
+
+    thread_num = (int64_t)arg;
+
+    /* Add values */
+    pthread_barrier_wait(&threads_barrier_start);
+    for (i = (domains_map_size / THREAD_COUNT) * thread_num;
+         i < (domains_map_size / THREAD_COUNT) * (thread_num + 1); i++) {
+        domain = &domains_random[domain_offsets[i]];
+        find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
+        if (find_res != array_hashmap_elem_not_finded) {
+            printf("Check that there are no non-inserted elements error\n");
+            break;
+        }
+    }
+    pthread_barrier_wait(&threads_barrier_end);
+    /* Add values */
+
+    return NULL;
+}
+
 int32_t main(void)
 {
     FILE *domains_fd = NULL;
-    char *domains_random = NULL;
     char *domain;
 
     int32_t is_thread_safety;
@@ -228,8 +255,7 @@ int32_t main(void)
     int32_t time_index = 0;
     int32_t one_op_time_ns[100];
 
-    pthread_t add_thread[THREAD_COUNT];
-    pthread_t find_thread[THREAD_COUNT];
+    pthread_t threads[THREAD_COUNT];
     void *set_arg;
 
     domains_fd = fopen("domains", "r");
@@ -287,8 +313,9 @@ int32_t main(void)
 
     domains_map_size -= domains_map_size % THREAD_COUNT;
 
-    printf("Domains count: %d\n", domains_map_size);
+    printf("Domains count: %d\n\n", domains_map_size);
 
+    printf("Thread count 1\n");
     printf("Fullness;"
            "Add values;"
            "Check that all values are inserted;"
@@ -474,9 +501,9 @@ int32_t main(void)
         }
         /* Check that everything is deleted */
 
-        printf("%d;", (int32_t)(step * 100));
+        printf("%4d;", (int32_t)(step * 100));
         for (i = 0; i < time_index; i++) {
-            printf("%d;", one_op_time_ns[i]);
+            printf("%4d;", one_op_time_ns[i]);
         }
         printf("\n");
         fflush(stdout);
@@ -497,6 +524,7 @@ int32_t main(void)
     printf("\n");
 
     if (is_thread_safety) {
+        printf("Thread count %d\n", THREAD_COUNT);
         printf("Fullness;"
                "Add values;"
                "Check that all values are inserted;"
@@ -520,19 +548,19 @@ int32_t main(void)
                                    domain_find_cmp);
             /* Init */
 
-            printf("%d;", (int32_t)(step * 100));
+            printf("%4d;", (int32_t)(step * 100));
 
-            /* Add */
+            /* Add values */
             pthread_barrier_init(&threads_barrier_start, NULL, THREAD_COUNT + 1);
             pthread_barrier_init(&threads_barrier_end, NULL, THREAD_COUNT + 1);
             for (j = 0; j < THREAD_COUNT; j++) {
                 set_arg = (void *)((int64_t)j);
-                if (pthread_create(&add_thread[j], NULL, add_thread_func, set_arg)) {
+                if (pthread_create(&threads[j], NULL, add_thread_func, set_arg)) {
                     printf("Can't create add_thread %d\n", j);
                     exit(EXIT_FAILURE);
                 }
 
-                if (pthread_detach(add_thread[j])) {
+                if (pthread_detach(threads[j])) {
                     printf("Can't detach add_thread %d\n", j);
                     exit(EXIT_FAILURE);
                 }
@@ -545,20 +573,20 @@ int32_t main(void)
             gettimeofday(&now_timeval_end, NULL);
             now_us_start = now_timeval_start.tv_sec * 1000000 + now_timeval_start.tv_usec;
             now_us_end = now_timeval_end.tv_sec * 1000000 + now_timeval_end.tv_usec;
-            printf("%d;", (int32_t)(((now_us_end - now_us_start) * 1000) / domains_map_size));
-            /* Add */
+            printf("%4d;", (int32_t)(((now_us_end - now_us_start) * 1000) / domains_map_size));
+            /* Add values */
 
-            /* Find */
+            /* Check that all values are inserted */
             pthread_barrier_init(&threads_barrier_start, NULL, THREAD_COUNT + 1);
             pthread_barrier_init(&threads_barrier_end, NULL, THREAD_COUNT + 1);
             for (j = 0; j < THREAD_COUNT; j++) {
                 set_arg = (void *)((int64_t)j);
-                if (pthread_create(&find_thread[j], NULL, find_thread_func, set_arg)) {
+                if (pthread_create(&threads[j], NULL, find_thread_func, set_arg)) {
                     printf("Can't create find_thread %d\n", j);
                     exit(EXIT_FAILURE);
                 }
 
-                if (pthread_detach(find_thread[j])) {
+                if (pthread_detach(threads[j])) {
                     printf("Can't detach find_thread %d\n", j);
                     exit(EXIT_FAILURE);
                 }
@@ -571,8 +599,34 @@ int32_t main(void)
             gettimeofday(&now_timeval_end, NULL);
             now_us_start = now_timeval_start.tv_sec * 1000000 + now_timeval_start.tv_usec;
             now_us_end = now_timeval_end.tv_sec * 1000000 + now_timeval_end.tv_usec;
-            printf("%d;\n", (int32_t)(((now_us_end - now_us_start) * 1000) / domains_map_size));
-            /* Find */
+            printf("%4d;", (int32_t)(((now_us_end - now_us_start) * 1000) / domains_map_size));
+            /* Check that all values are inserted */
+
+            /* Check that there are no non-inserted elements */
+            pthread_barrier_init(&threads_barrier_start, NULL, THREAD_COUNT + 1);
+            pthread_barrier_init(&threads_barrier_end, NULL, THREAD_COUNT + 1);
+            for (j = 0; j < THREAD_COUNT; j++) {
+                set_arg = (void *)((int64_t)j);
+                if (pthread_create(&threads[j], NULL, no_find_thread_func, set_arg)) {
+                    printf("Can't create find_thread %d\n", j);
+                    exit(EXIT_FAILURE);
+                }
+
+                if (pthread_detach(threads[j])) {
+                    printf("Can't detach find_thread %d\n", j);
+                    exit(EXIT_FAILURE);
+                }
+            }
+            random_permutation(domain_offsets, domains_map_size);
+            clean_cache();
+            pthread_barrier_wait(&threads_barrier_start);
+            gettimeofday(&now_timeval_start, NULL);
+            pthread_barrier_wait(&threads_barrier_end);
+            gettimeofday(&now_timeval_end, NULL);
+            now_us_start = now_timeval_start.tv_sec * 1000000 + now_timeval_start.tv_usec;
+            now_us_end = now_timeval_end.tv_sec * 1000000 + now_timeval_end.tv_usec;
+            printf("%4d;\n", (int32_t)(((now_us_end - now_us_start) * 1000) / domains_map_size));
+            /* Check that there are no non-inserted elements */
         }
     }
 
