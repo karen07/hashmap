@@ -7,9 +7,8 @@
 #include <errno.h>
 #include <string.h>
 #include <time.h>
+#include <stdarg.h>
 #include <pthread.h>
-
-#define THREAD_COUNT 4
 
 #define FIRST_TEST_TIME 10
 #define SECOND_TEST_TIME 100
@@ -24,6 +23,8 @@ char *domains_random = NULL;
 int32_t *domain_offsets = NULL;
 int32_t domains_map_size = 0;
 array_hashmap_t domains_map_struct = NULL;
+
+volatile int32_t thread_count = 0;
 
 pthread_barrier_t threads_barrier_start;
 pthread_barrier_t threads_barrier_end;
@@ -105,6 +106,19 @@ void clean_cache(void)
     free(c);
 }
 
+void errmsg(const char *format, ...)
+{
+    va_list args;
+
+    printf("Error: ");
+
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+
+    exit(EXIT_FAILURE);
+}
+
 void random_permutation(int32_t *array, int32_t size)
 {
     int32_t i = 0;
@@ -138,17 +152,15 @@ void random_permutation(int32_t *array, int32_t size)
 
 #define RUN_THREAD(func)                                                                        \
     {                                                                                           \
-        pthread_barrier_init(&threads_barrier_start, NULL, THREAD_COUNT + 1);                   \
-        pthread_barrier_init(&threads_barrier_end, NULL, THREAD_COUNT + 1);                     \
-        for (j = 0; j < THREAD_COUNT; j++) {                                                    \
+        pthread_barrier_init(&threads_barrier_start, NULL, thread_count + 1);                   \
+        pthread_barrier_init(&threads_barrier_end, NULL, thread_count + 1);                     \
+        for (j = 0; j < thread_count; j++) {                                                    \
             set_arg = (void *)((int64_t)j);                                                     \
-            if (pthread_create(&threads[j], NULL, func##_thread_func, set_arg)) {               \
-                printf("Can't create " #func "_thread %d\n", j);                                \
-                exit(EXIT_FAILURE);                                                             \
+            if (pthread_create(&thread, NULL, func##_thread_func, set_arg)) {                   \
+                errmsg("Can't create " #func "_thread %d\n", j);                                \
             }                                                                                   \
-            if (pthread_detach(threads[j])) {                                                   \
-                printf("Can't detach " #func "_thread %d\n", j);                                \
-                exit(EXIT_FAILURE);                                                             \
+            if (pthread_detach(thread)) {                                                       \
+                errmsg("Can't detach " #func "_thread %d\n", j);                                \
             }                                                                                   \
         }                                                                                       \
         random_permutation(domain_offsets, domains_map_size);                                   \
@@ -173,16 +185,15 @@ void *add_thread_func(void *arg)
 
     /* Add values */
     pthread_barrier_wait(&threads_barrier_start);
-    for (i = (domains_map_size / THREAD_COUNT) * thread_num;
-         i < (domains_map_size / THREAD_COUNT) * (thread_num + 1); i++) {
+    for (i = (domains_map_size / thread_count) * thread_num;
+         i < (domains_map_size / thread_count) * (thread_num + 1); i++) {
         add_elem.domain_pos = domain_offsets[i];
         add_elem.time = FIRST_TEST_TIME;
 
         add_res = array_hashmap_add_elem(domains_map_struct, &add_elem, NULL,
                                          array_hashmap_save_old_func);
         if (add_res != array_hashmap_elem_added) {
-            printf("Add values error\n");
-            break;
+            errmsg("Add values error\n");
         }
     }
     pthread_barrier_wait(&threads_barrier_end);
@@ -203,15 +214,14 @@ void *find_thread_func(void *arg)
 
     /* Add values */
     pthread_barrier_wait(&threads_barrier_start);
-    for (i = (domains_map_size / THREAD_COUNT) * thread_num;
-         i < (domains_map_size / THREAD_COUNT) * (thread_num + 1); i++) {
+    for (i = (domains_map_size / thread_count) * thread_num;
+         i < (domains_map_size / thread_count) * (thread_num + 1); i++) {
         domain = &domains[domain_offsets[i]];
         find_elem.domain_pos = 0;
         find_elem.time = 0;
         find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
         if (find_res != array_hashmap_elem_finded || find_elem.time != FIRST_TEST_TIME) {
-            printf("Check that all values are inserted error\n");
-            break;
+            errmsg("Check that all values are inserted error\n");
         }
     }
     pthread_barrier_wait(&threads_barrier_end);
@@ -232,13 +242,12 @@ void *no_find_thread_func(void *arg)
 
     /* Add values */
     pthread_barrier_wait(&threads_barrier_start);
-    for (i = (domains_map_size / THREAD_COUNT) * thread_num;
-         i < (domains_map_size / THREAD_COUNT) * (thread_num + 1); i++) {
+    for (i = (domains_map_size / thread_count) * thread_num;
+         i < (domains_map_size / thread_count) * (thread_num + 1); i++) {
         domain = &domains_random[domain_offsets[i]];
         find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
         if (find_res != array_hashmap_elem_not_finded) {
-            printf("Check that there are no non-inserted elements error\n");
-            break;
+            errmsg("Check that there are no non-inserted elements error\n");
         }
     }
     pthread_barrier_wait(&threads_barrier_end);
@@ -281,16 +290,17 @@ int32_t main(void)
     int32_t time_index = 0;
     int32_t one_op_time_ns[100];
 
-    pthread_t threads[THREAD_COUNT];
+    pthread_t thread;
     void *set_arg;
 
     char *print_data[8];
     char print_format[10];
 
+    int32_t domains_map_size_all = 0;
+
     domains_fd = fopen("domains", "r");
     if (domains_fd == NULL) {
-        printf("Can't open domains file\n");
-        exit(EXIT_FAILURE);
+        errmsg("Can't open domains file\n");
     }
 
     fseek(domains_fd, 0, SEEK_END);
@@ -298,25 +308,21 @@ int32_t main(void)
     fseek(domains_fd, 0, SEEK_SET);
 
     if (domains_file_size == 0) {
-        printf("Empty file\n");
-        exit(EXIT_FAILURE);
+        errmsg("Empty file\n");
     }
 
     domains = malloc(domains_file_size);
     if (domains == NULL) {
-        printf("No free memory for domains\n");
-        exit(EXIT_FAILURE);
+        errmsg("No free memory for domains\n");
     }
 
     domains_random = malloc(domains_file_size);
     if (domains_random == NULL) {
-        printf("No free memory for domains_random\n");
-        exit(EXIT_FAILURE);
+        errmsg("No free memory for domains_random\n");
     }
 
     if (fread(domains, domains_file_size, 1, domains_fd) != 1) {
-        printf("Can't read domain file\n");
-        exit(EXIT_FAILURE);
+        errmsg("Can't read domain file\n");
     }
 
     fclose(domains_fd);
@@ -340,10 +346,7 @@ int32_t main(void)
         domains_random[domain_offsets[i]] = '&';
     }
 
-    domains_map_size -= domains_map_size % THREAD_COUNT;
-
-    printf("Domains count: %d\n\n", domains_map_size);
-
+    printf("Domains count: %d\n", domains_map_size);
     printf("Thread count 1\n");
     print_data[0] = "Fullness;";
     print_data[1] = "Add values;";
@@ -365,8 +368,7 @@ int32_t main(void)
         domains_map_struct =
             array_hashmap_init(domains_map_size / step, 1.0, sizeof(domain_data_t));
         if (domains_map_struct == NULL) {
-            printf("Init error\n");
-            return EXIT_FAILURE;
+            errmsg("Init error\n");
         }
 
         array_hashmap_set_func(domains_map_struct, domain_add_hash, domain_add_cmp,
@@ -383,8 +385,7 @@ int32_t main(void)
             add_res = array_hashmap_add_elem(domains_map_struct, &add_elem, NULL,
                                              array_hashmap_save_old_func);
             if (add_res != array_hashmap_elem_added) {
-                printf("Add values error\n");
-                return EXIT_FAILURE;
+                errmsg("Add values error\n");
             }
         }
         TIMER_END();
@@ -398,8 +399,7 @@ int32_t main(void)
             find_elem.time = 0;
             find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
             if (find_res != array_hashmap_elem_finded || find_elem.time != FIRST_TEST_TIME) {
-                printf("Check that all values are inserted error\n");
-                return EXIT_FAILURE;
+                errmsg("Check that all values are inserted error\n");
             }
         }
         TIMER_END();
@@ -411,8 +411,7 @@ int32_t main(void)
             domain = &domains_random[domain_offsets[i]];
             find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
-                printf("Check that there are no non-inserted elements error\n");
-                return EXIT_FAILURE;
+                errmsg("Check that there are no non-inserted elements error\n");
             }
         }
         TIMER_END();
@@ -427,8 +426,7 @@ int32_t main(void)
             add_res =
                 array_hashmap_add_elem(domains_map_struct, &add_elem, NULL, domain_on_already_in);
             if (add_res != array_hashmap_elem_already_in) {
-                printf("Update values error\n");
-                return EXIT_FAILURE;
+                errmsg("Update values error\n");
             }
         }
         TIMER_END();
@@ -442,8 +440,8 @@ int32_t main(void)
             find_elem.time = 0;
             find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
             if (find_res != array_hashmap_elem_finded || find_elem.time != SECOND_TEST_TIME) {
-                printf("Check the updated values error\n");
-                return EXIT_FAILURE;
+                errmsg("Check the updated values error\n");
+                ;
             }
         }
         TIMER_END();
@@ -457,8 +455,7 @@ int32_t main(void)
             del_elem.time = 0;
             del_res = array_hashmap_del_elem(domains_map_struct, domain, &del_elem);
             if (del_res != array_hashmap_elem_deled || del_elem.time != SECOND_TEST_TIME) {
-                printf("Delete everything individually error\n");
-                return EXIT_FAILURE;
+                errmsg("Delete everything individually error\n");
             }
         }
         TIMER_END();
@@ -469,21 +466,18 @@ int32_t main(void)
             domain = &domains[domain_offsets[i]];
             find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
-                printf("Check that everything is deleted error\n");
-                return EXIT_FAILURE;
+                errmsg("Check that everything is deleted error\n");
             }
         }
         for (i = 0; i < domains_map_size; i++) {
             domain = &domains_random[domain_offsets[i]];
             find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
-                printf("Check that everything is deleted error\n");
-                return EXIT_FAILURE;
+                errmsg("Check that everything is deleted error\n");
             }
         }
         if (array_hashmap_now_in_map(domains_map_struct) != 0) {
-            printf("Check that everything is deleted error\n");
-            return EXIT_FAILURE;
+            errmsg("Check that everything is deleted error\n");
         }
         /* Check that everything is deleted */
 
@@ -495,8 +489,7 @@ int32_t main(void)
             add_res = array_hashmap_add_elem(domains_map_struct, &add_elem, NULL,
                                              array_hashmap_save_old_func);
             if (add_res != array_hashmap_elem_added) {
-                printf("Add values error\n");
-                return EXIT_FAILURE;
+                errmsg("Add values error\n");
             }
         }
         /* Add values */
@@ -505,8 +498,7 @@ int32_t main(void)
         TIMER_START();
         del_elem_by_func_res = array_hashmap_del_elem_by_func(domains_map_struct, domain_del_func);
         if (del_elem_by_func_res != domains_map_size) {
-            printf("Delete everything at once error\n");
-            return EXIT_FAILURE;
+            errmsg("Delete everything at once error\n");
         }
         TIMER_END();
         /* Delete everything at once */
@@ -516,21 +508,18 @@ int32_t main(void)
             domain = &domains[domain_offsets[i]];
             find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
-                printf("Check that everything is deleted error\n");
-                return EXIT_FAILURE;
+                errmsg("Check that everything is deleted error\n");
             }
         }
         for (i = 0; i < domains_map_size; i++) {
             domain = &domains_random[domain_offsets[i]];
             find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
             if (find_res != array_hashmap_elem_not_finded) {
-                printf("Check that everything is deleted error\n");
-                return EXIT_FAILURE;
+                errmsg("Check that everything is deleted error\n");
             }
         }
         if (array_hashmap_now_in_map(domains_map_struct) != 0) {
-            printf("Check that everything is deleted error\n");
-            return EXIT_FAILURE;
+            errmsg("Check that everything is deleted error\n");
         }
         /* Check that everything is deleted */
 
@@ -550,8 +539,7 @@ int32_t main(void)
     {
         domains_map_struct = array_hashmap_init(domains_map_size, 1.0, sizeof(domain_data_t));
         if (domains_map_struct == NULL) {
-            printf("Init error\n");
-            return EXIT_FAILURE;
+            errmsg("Init error\n");
         }
 
         is_thread_safety = array_hashmap_is_thread_safety(domains_map_struct);
@@ -559,61 +547,66 @@ int32_t main(void)
         array_hashmap_del(&domains_map_struct);
     }
 
+    domains_map_size_all = domains_map_size;
+
     if (is_thread_safety) {
-        printf("Thread count %d\n", THREAD_COUNT);
-        print_data[0] = "Fullness;";
-        print_data[1] = "Add values;";
-        print_data[2] = "Check that all values are inserted;";
-        print_data[3] = "Check that there are no non-inserted elements;";
-        print_data[4] = "Update values;";
-        print_data[5] = "Check the updated values;";
-        print_data[6] = "Delete everything individually;";
-        print_data[7] = "Delete everything at once;";
-        for (i = 0; i < 8; i++) {
-            printf("%s", print_data[i]);
-        }
-        printf("\n");
-
-        for (step = 0.5; step > 0.48; step -= 0.01) {
-            time_index = 0;
-
-            /* Init */
-            domains_map_struct =
-                array_hashmap_init(domains_map_size / step, 1.0, sizeof(domain_data_t));
-            if (domains_map_struct == NULL) {
-                printf("Init error\n");
-                return EXIT_FAILURE;
-            }
-
-            array_hashmap_set_func(domains_map_struct, domain_add_hash, domain_add_cmp,
-                                   domain_find_hash, domain_find_cmp, domain_find_hash,
-                                   domain_find_cmp);
-            /* Init */
-
-            /* Add values */
-            RUN_THREAD(add);
-            /* Add values */
-
-            /* Check that all values are inserted */
-            RUN_THREAD(find);
-            /* Check that all values are inserted */
-
-            /* Check that there are no non-inserted elements */
-            RUN_THREAD(no_find);
-            /* Check that there are no non-inserted elements */
-
-            sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[0]) - 1));
-            printf(print_format, (int32_t)(step * 100));
-            for (i = 0; i < time_index; i++) {
-                sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[i + 1]) - 1));
-                printf(print_format, one_op_time_ns[i]);
+        for (thread_count = 1; thread_count <= 8; thread_count++) {
+            domains_map_size = domains_map_size_all - domains_map_size_all % thread_count;
+            printf("Domains count: %d\n", domains_map_size);
+            printf("Thread count %d\n", thread_count);
+            print_data[0] = "Fullness;";
+            print_data[1] = "Add values;";
+            print_data[2] = "Check that all values are inserted;";
+            print_data[3] = "Check that there are no non-inserted elements;";
+            print_data[4] = "Update values;";
+            print_data[5] = "Check the updated values;";
+            print_data[6] = "Delete everything individually;";
+            print_data[7] = "Delete everything at once;";
+            for (i = 0; i < 8; i++) {
+                printf("%s", print_data[i]);
             }
             printf("\n");
-            fflush(stdout);
 
-            array_hashmap_del(&domains_map_struct);
+            for (step = 0.5; step > 0.48; step -= 0.01) {
+                time_index = 0;
+
+                /* Init */
+                domains_map_struct =
+                    array_hashmap_init(domains_map_size / step, 1.0, sizeof(domain_data_t));
+                if (domains_map_struct == NULL) {
+                    errmsg("Init error\n");
+                }
+
+                array_hashmap_set_func(domains_map_struct, domain_add_hash, domain_add_cmp,
+                                       domain_find_hash, domain_find_cmp, domain_find_hash,
+                                       domain_find_cmp);
+                /* Init */
+
+                /* Add values */
+                RUN_THREAD(add);
+                /* Add values */
+
+                /* Check that all values are inserted */
+                RUN_THREAD(find);
+                /* Check that all values are inserted */
+
+                /* Check that there are no non-inserted elements */
+                RUN_THREAD(no_find);
+                /* Check that there are no non-inserted elements */
+
+                sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[0]) - 1));
+                printf(print_format, (int32_t)(step * 100));
+                for (i = 0; i < time_index; i++) {
+                    sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[i + 1]) - 1));
+                    printf(print_format, one_op_time_ns[i]);
+                }
+                printf("\n");
+                fflush(stdout);
+
+                array_hashmap_del(&domains_map_struct);
+            }
+            printf("\n");
         }
-        printf("\n");
     }
 
     free(domains);
