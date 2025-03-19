@@ -444,7 +444,7 @@ int32_t main(void)
     }
     printf("\n");
 
-    for (step = 0.5; step > 0.48; step -= 0.01) {
+    for (step = 1.00; step > 0.5; step -= 0.01) {
         time_index = 0;
 
         /* Init */
@@ -642,7 +642,7 @@ int32_t main(void)
             }
             printf("\n");
 
-            for (step = 0.5; step > 0.48; step -= 0.01) {
+            for (step = 1.00; step > 0.5; step -= 0.01) {
                 time_index = 0;
 
                 /* Init */
