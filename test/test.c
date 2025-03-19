@@ -256,6 +256,61 @@ void *no_find_thread_func(void *arg)
     return NULL;
 }
 
+void *update_thread_func(void *arg)
+{
+    int32_t i = 0;
+    domain_data_t add_elem;
+    int32_t add_res;
+    int32_t thread_num;
+
+    thread_num = (int64_t)arg;
+
+    /* Add values */
+    pthread_barrier_wait(&threads_barrier_start);
+    for (i = (domains_map_size / thread_count) * thread_num;
+         i < (domains_map_size / thread_count) * (thread_num + 1); i++) {
+        add_elem.domain_pos = domain_offsets[i];
+        add_elem.time = SECOND_TEST_TIME;
+
+        add_res = array_hashmap_add_elem(domains_map_struct, &add_elem, NULL, domain_on_already_in);
+        if (add_res != array_hashmap_elem_already_in) {
+            errmsg("Update values error\n");
+        }
+    }
+    pthread_barrier_wait(&threads_barrier_end);
+    /* Add values */
+
+    return NULL;
+}
+
+void *check_update_thread_func(void *arg)
+{
+    int32_t i = 0;
+    domain_data_t find_elem;
+    int32_t find_res;
+    int32_t thread_num;
+    char *domain;
+
+    thread_num = (int64_t)arg;
+
+    /* Add values */
+    pthread_barrier_wait(&threads_barrier_start);
+    for (i = (domains_map_size / thread_count) * thread_num;
+         i < (domains_map_size / thread_count) * (thread_num + 1); i++) {
+        domain = &domains[domain_offsets[i]];
+        find_elem.domain_pos = 0;
+        find_elem.time = 0;
+        find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
+        if (find_res != array_hashmap_elem_finded || find_elem.time != SECOND_TEST_TIME) {
+            errmsg("Check the updated values error\n");
+        }
+    }
+    pthread_barrier_wait(&threads_barrier_end);
+    /* Add values */
+
+    return NULL;
+}
+
 int32_t main(void)
 {
     FILE *domains_fd = NULL;
@@ -441,7 +496,6 @@ int32_t main(void)
             find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
             if (find_res != array_hashmap_elem_finded || find_elem.time != SECOND_TEST_TIME) {
                 errmsg("Check the updated values error\n");
-                ;
             }
         }
         TIMER_END();
@@ -593,6 +647,14 @@ int32_t main(void)
                 /* Check that there are no non-inserted elements */
                 RUN_THREAD(no_find);
                 /* Check that there are no non-inserted elements */
+
+                /* Update values */
+                RUN_THREAD(update);
+                /* Update values */
+
+                /* Check the updated values */
+                RUN_THREAD(check_update);
+                /* Check the updated values */
 
                 sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[0]) - 1));
                 printf(print_format, (int32_t)(step * 100));
