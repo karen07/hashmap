@@ -311,6 +311,34 @@ void *check_update_thread_func(void *arg)
     return NULL;
 }
 
+void *del_thread_func(void *arg)
+{
+    int32_t i = 0;
+    domain_data_t del_elem;
+    int32_t del_res;
+    int32_t thread_num;
+    char *domain;
+
+    thread_num = (int64_t)arg;
+
+    /* Add values */
+    pthread_barrier_wait(&threads_barrier_start);
+    for (i = (domains_map_size / thread_count) * thread_num;
+         i < (domains_map_size / thread_count) * (thread_num + 1); i++) {
+        domain = &domains[domain_offsets[i]];
+        del_elem.domain_pos = 0;
+        del_elem.time = 0;
+        del_res = array_hashmap_del_elem(domains_map_struct, domain, &del_elem);
+        if (del_res != array_hashmap_elem_deled || del_elem.time != SECOND_TEST_TIME) {
+            errmsg("Delete everything individually error\n");
+        }
+    }
+    pthread_barrier_wait(&threads_barrier_end);
+    /* Add values */
+
+    return NULL;
+}
+
 int32_t main(void)
 {
     FILE *domains_fd = NULL;
@@ -608,15 +636,8 @@ int32_t main(void)
             domains_map_size = domains_map_size_all - domains_map_size_all % thread_count;
             printf("Domains count: %d\n", domains_map_size);
             printf("Thread count %d\n", thread_count);
-            print_data[0] = "Fullness;";
-            print_data[1] = "Add values;";
-            print_data[2] = "Check that all values are inserted;";
-            print_data[3] = "Check that there are no non-inserted elements;";
-            print_data[4] = "Update values;";
-            print_data[5] = "Check the updated values;";
-            print_data[6] = "Delete everything individually;";
-            print_data[7] = "Delete everything at once;";
-            for (i = 0; i < 8; i++) {
+
+            for (i = 0; i < 7; i++) {
                 printf("%s", print_data[i]);
             }
             printf("\n");
@@ -655,6 +676,30 @@ int32_t main(void)
                 /* Check the updated values */
                 RUN_THREAD(check_update);
                 /* Check the updated values */
+
+                /* Delete everything individually */
+                RUN_THREAD(del);
+                /* Delete everything individually */
+
+                /* Check that everything is deleted */
+                for (i = 0; i < domains_map_size; i++) {
+                    domain = &domains[domain_offsets[i]];
+                    find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
+                    if (find_res != array_hashmap_elem_not_finded) {
+                        errmsg("Check that everything is deleted error\n");
+                    }
+                }
+                for (i = 0; i < domains_map_size; i++) {
+                    domain = &domains_random[domain_offsets[i]];
+                    find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
+                    if (find_res != array_hashmap_elem_not_finded) {
+                        errmsg("Check that everything is deleted error\n");
+                    }
+                }
+                if (array_hashmap_now_in_map(domains_map_struct) != 0) {
+                    errmsg("Check that everything is deleted error\n");
+                }
+                /* Check that everything is deleted */
 
                 sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[0]) - 1));
                 printf(print_format, (int32_t)(step * 100));
