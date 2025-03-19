@@ -136,6 +136,32 @@ void random_permutation(int32_t *array, int32_t size)
         one_op_time_ns[time_index++] = ((now_us_end - now_us_start) * 1000) / domains_map_size; \
     }
 
+#define RUN_THREAD(func)                                                                        \
+    {                                                                                           \
+        pthread_barrier_init(&threads_barrier_start, NULL, THREAD_COUNT + 1);                   \
+        pthread_barrier_init(&threads_barrier_end, NULL, THREAD_COUNT + 1);                     \
+        for (j = 0; j < THREAD_COUNT; j++) {                                                    \
+            set_arg = (void *)((int64_t)j);                                                     \
+            if (pthread_create(&threads[j], NULL, func##_thread_func, set_arg)) {               \
+                printf("Can't create " #func "_thread %d\n", j);                                \
+                exit(EXIT_FAILURE);                                                             \
+            }                                                                                   \
+            if (pthread_detach(threads[j])) {                                                   \
+                printf("Can't detach " #func "_thread %d\n", j);                                \
+                exit(EXIT_FAILURE);                                                             \
+            }                                                                                   \
+        }                                                                                       \
+        random_permutation(domain_offsets, domains_map_size);                                   \
+        clean_cache();                                                                          \
+        pthread_barrier_wait(&threads_barrier_start);                                           \
+        gettimeofday(&now_timeval_start, NULL);                                                 \
+        pthread_barrier_wait(&threads_barrier_end);                                             \
+        gettimeofday(&now_timeval_end, NULL);                                                   \
+        now_us_start = now_timeval_start.tv_sec * 1000000 + now_timeval_start.tv_usec;          \
+        now_us_end = now_timeval_end.tv_sec * 1000000 + now_timeval_end.tv_usec;                \
+        one_op_time_ns[time_index++] = ((now_us_end - now_us_start) * 1000) / domains_map_size; \
+    }
+
 void *add_thread_func(void *arg)
 {
     int32_t i = 0;
@@ -258,6 +284,9 @@ int32_t main(void)
     pthread_t threads[THREAD_COUNT];
     void *set_arg;
 
+    char *print_data[8];
+    char print_format[10];
+
     domains_fd = fopen("domains", "r");
     if (domains_fd == NULL) {
         printf("Can't open domains file\n");
@@ -316,14 +345,18 @@ int32_t main(void)
     printf("Domains count: %d\n\n", domains_map_size);
 
     printf("Thread count 1\n");
-    printf("Fullness;"
-           "Add values;"
-           "Check that all values are inserted;"
-           "Check that there are no non-inserted elements;"
-           "Update values;"
-           "Check the updated values;"
-           "Delete everything individually;"
-           "Delete everything at once;\n");
+    print_data[0] = "Fullness;";
+    print_data[1] = "Add values;";
+    print_data[2] = "Check that all values are inserted;";
+    print_data[3] = "Check that there are no non-inserted elements;";
+    print_data[4] = "Update values;";
+    print_data[5] = "Check the updated values;";
+    print_data[6] = "Delete everything individually;";
+    print_data[7] = "Delete everything at once;";
+    for (i = 0; i < 8; i++) {
+        printf("%s", print_data[i]);
+    }
+    printf("\n");
 
     for (step = 0.5; step > 0.48; step -= 0.01) {
         time_index = 0;
@@ -501,40 +534,49 @@ int32_t main(void)
         }
         /* Check that everything is deleted */
 
-        printf("%4d;", (int32_t)(step * 100));
+        sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[0]) - 1));
+        printf(print_format, (int32_t)(step * 100));
         for (i = 0; i < time_index; i++) {
-            printf("%4d;", one_op_time_ns[i]);
+            sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[i + 1]) - 1));
+            printf(print_format, one_op_time_ns[i]);
         }
         printf("\n");
         fflush(stdout);
 
         array_hashmap_del(&domains_map_struct);
     }
-
-    domains_map_struct = array_hashmap_init(domains_map_size, 1.0, sizeof(domain_data_t));
-    if (domains_map_struct == NULL) {
-        printf("Init error\n");
-        return EXIT_FAILURE;
-    }
-
-    is_thread_safety = array_hashmap_is_thread_safety(domains_map_struct);
-
-    array_hashmap_del(&domains_map_struct);
-
     printf("\n");
+
+    {
+        domains_map_struct = array_hashmap_init(domains_map_size, 1.0, sizeof(domain_data_t));
+        if (domains_map_struct == NULL) {
+            printf("Init error\n");
+            return EXIT_FAILURE;
+        }
+
+        is_thread_safety = array_hashmap_is_thread_safety(domains_map_struct);
+
+        array_hashmap_del(&domains_map_struct);
+    }
 
     if (is_thread_safety) {
         printf("Thread count %d\n", THREAD_COUNT);
-        printf("Fullness;"
-               "Add values;"
-               "Check that all values are inserted;"
-               "Check that there are no non-inserted elements;"
-               "Update values;"
-               "Check the updated values;"
-               "Delete everything individually;"
-               "Delete everything at once;\n");
+        print_data[0] = "Fullness;";
+        print_data[1] = "Add values;";
+        print_data[2] = "Check that all values are inserted;";
+        print_data[3] = "Check that there are no non-inserted elements;";
+        print_data[4] = "Update values;";
+        print_data[5] = "Check the updated values;";
+        print_data[6] = "Delete everything individually;";
+        print_data[7] = "Delete everything at once;";
+        for (i = 0; i < 8; i++) {
+            printf("%s", print_data[i]);
+        }
+        printf("\n");
 
         for (step = 0.5; step > 0.48; step -= 0.01) {
+            time_index = 0;
+
             /* Init */
             domains_map_struct =
                 array_hashmap_init(domains_map_size / step, 1.0, sizeof(domain_data_t));
@@ -548,86 +590,30 @@ int32_t main(void)
                                    domain_find_cmp);
             /* Init */
 
-            printf("%4d;", (int32_t)(step * 100));
-
             /* Add values */
-            pthread_barrier_init(&threads_barrier_start, NULL, THREAD_COUNT + 1);
-            pthread_barrier_init(&threads_barrier_end, NULL, THREAD_COUNT + 1);
-            for (j = 0; j < THREAD_COUNT; j++) {
-                set_arg = (void *)((int64_t)j);
-                if (pthread_create(&threads[j], NULL, add_thread_func, set_arg)) {
-                    printf("Can't create add_thread %d\n", j);
-                    exit(EXIT_FAILURE);
-                }
-
-                if (pthread_detach(threads[j])) {
-                    printf("Can't detach add_thread %d\n", j);
-                    exit(EXIT_FAILURE);
-                }
-            }
-            random_permutation(domain_offsets, domains_map_size);
-            clean_cache();
-            pthread_barrier_wait(&threads_barrier_start);
-            gettimeofday(&now_timeval_start, NULL);
-            pthread_barrier_wait(&threads_barrier_end);
-            gettimeofday(&now_timeval_end, NULL);
-            now_us_start = now_timeval_start.tv_sec * 1000000 + now_timeval_start.tv_usec;
-            now_us_end = now_timeval_end.tv_sec * 1000000 + now_timeval_end.tv_usec;
-            printf("%4d;", (int32_t)(((now_us_end - now_us_start) * 1000) / domains_map_size));
+            RUN_THREAD(add);
             /* Add values */
 
             /* Check that all values are inserted */
-            pthread_barrier_init(&threads_barrier_start, NULL, THREAD_COUNT + 1);
-            pthread_barrier_init(&threads_barrier_end, NULL, THREAD_COUNT + 1);
-            for (j = 0; j < THREAD_COUNT; j++) {
-                set_arg = (void *)((int64_t)j);
-                if (pthread_create(&threads[j], NULL, find_thread_func, set_arg)) {
-                    printf("Can't create find_thread %d\n", j);
-                    exit(EXIT_FAILURE);
-                }
-
-                if (pthread_detach(threads[j])) {
-                    printf("Can't detach find_thread %d\n", j);
-                    exit(EXIT_FAILURE);
-                }
-            }
-            random_permutation(domain_offsets, domains_map_size);
-            clean_cache();
-            pthread_barrier_wait(&threads_barrier_start);
-            gettimeofday(&now_timeval_start, NULL);
-            pthread_barrier_wait(&threads_barrier_end);
-            gettimeofday(&now_timeval_end, NULL);
-            now_us_start = now_timeval_start.tv_sec * 1000000 + now_timeval_start.tv_usec;
-            now_us_end = now_timeval_end.tv_sec * 1000000 + now_timeval_end.tv_usec;
-            printf("%4d;", (int32_t)(((now_us_end - now_us_start) * 1000) / domains_map_size));
+            RUN_THREAD(find);
             /* Check that all values are inserted */
 
             /* Check that there are no non-inserted elements */
-            pthread_barrier_init(&threads_barrier_start, NULL, THREAD_COUNT + 1);
-            pthread_barrier_init(&threads_barrier_end, NULL, THREAD_COUNT + 1);
-            for (j = 0; j < THREAD_COUNT; j++) {
-                set_arg = (void *)((int64_t)j);
-                if (pthread_create(&threads[j], NULL, no_find_thread_func, set_arg)) {
-                    printf("Can't create find_thread %d\n", j);
-                    exit(EXIT_FAILURE);
-                }
-
-                if (pthread_detach(threads[j])) {
-                    printf("Can't detach find_thread %d\n", j);
-                    exit(EXIT_FAILURE);
-                }
-            }
-            random_permutation(domain_offsets, domains_map_size);
-            clean_cache();
-            pthread_barrier_wait(&threads_barrier_start);
-            gettimeofday(&now_timeval_start, NULL);
-            pthread_barrier_wait(&threads_barrier_end);
-            gettimeofday(&now_timeval_end, NULL);
-            now_us_start = now_timeval_start.tv_sec * 1000000 + now_timeval_start.tv_usec;
-            now_us_end = now_timeval_end.tv_sec * 1000000 + now_timeval_end.tv_usec;
-            printf("%4d;\n", (int32_t)(((now_us_end - now_us_start) * 1000) / domains_map_size));
+            RUN_THREAD(no_find);
             /* Check that there are no non-inserted elements */
+
+            sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[0]) - 1));
+            printf(print_format, (int32_t)(step * 100));
+            for (i = 0; i < time_index; i++) {
+                sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[i + 1]) - 1));
+                printf(print_format, one_op_time_ns[i]);
+            }
+            printf("\n");
+            fflush(stdout);
+
+            array_hashmap_del(&domains_map_struct);
         }
+        printf("\n");
     }
 
     free(domains);
