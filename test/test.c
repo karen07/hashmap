@@ -450,131 +450,133 @@ int32_t main(void)
 
     domains_map_size_all = domains_map_size;
 
-    if (is_thread_safety) {
-        for (thread_count = 1; thread_count <= 8; thread_count++) {
-            domains_map_size = domains_map_size_all - domains_map_size_all % thread_count;
-            printf("Domains count: %d\n", domains_map_size);
-            printf("Threads count: %d\n", thread_count);
-            for (i = 0; i < 8; i++) {
-                printf("%s", print_data[i]);
-            }
-            printf("\n");
+    if (!is_thread_safety) {
+        errmsg("Need thread safety version\n");
+    }
 
-            for (step = 1.00; step > 0.5; step -= 0.01) {
-                time_index = 0;
-
-                /* Init */
-                domains_map_struct =
-                    array_hashmap_init(domains_map_size / step, 1.0, sizeof(domain_data_t));
-                if (domains_map_struct == NULL) {
-                    errmsg("Init error\n");
-                }
-
-                array_hashmap_set_func(domains_map_struct, domain_add_hash, domain_add_cmp,
-                                       domain_find_hash, domain_find_cmp, domain_find_hash,
-                                       domain_find_cmp);
-                /* Init */
-
-                /* Add values */
-                RUN_THREAD(add);
-                /* Add values */
-
-                /* Check that all values are inserted */
-                RUN_THREAD(find);
-                /* Check that all values are inserted */
-
-                /* Check that there are no non-inserted elements */
-                RUN_THREAD(no_find);
-                /* Check that there are no non-inserted elements */
-
-                /* Update values */
-                RUN_THREAD(update);
-                /* Update values */
-
-                /* Check the updated values */
-                RUN_THREAD(check_update);
-                /* Check the updated values */
-
-                /* Delete everything individually */
-                RUN_THREAD(del);
-                /* Delete everything individually */
-
-                /* Check that everything is deleted */
-                for (i = 0; i < domains_map_size; i++) {
-                    domain = &domains[domain_offsets[i]];
-                    find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
-                    if (find_res != array_hashmap_elem_not_finded) {
-                        errmsg("Check that everything is deleted error\n");
-                    }
-                }
-                for (i = 0; i < domains_map_size; i++) {
-                    domain = &domains_random[domain_offsets[i]];
-                    find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
-                    if (find_res != array_hashmap_elem_not_finded) {
-                        errmsg("Check that everything is deleted error\n");
-                    }
-                }
-                if (array_hashmap_now_in_map(domains_map_struct) != 0) {
-                    errmsg("Check that everything is deleted error\n");
-                }
-                /* Check that everything is deleted */
-
-                /* Add values */
-                for (i = 0; i < domains_map_size; i++) {
-                    add_elem.domain_pos = domain_offsets[i];
-                    add_elem.time = SECOND_TEST_TIME;
-
-                    add_res = array_hashmap_add_elem(domains_map_struct, &add_elem, NULL,
-                                                     array_hashmap_save_old_func);
-                    if (add_res != array_hashmap_elem_added) {
-                        errmsg("Add values error\n");
-                    }
-                }
-                /* Add values */
-
-                /* Delete everything at once */
-                TIMER_START();
-                del_elem_by_func_res =
-                    array_hashmap_del_elem_by_func(domains_map_struct, domain_del_func);
-                if (del_elem_by_func_res != domains_map_size) {
-                    errmsg("Delete everything at once error\n");
-                }
-                TIMER_END();
-                /* Delete everything at once */
-
-                /* Check that everything is deleted */
-                for (i = 0; i < domains_map_size; i++) {
-                    domain = &domains[domain_offsets[i]];
-                    find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
-                    if (find_res != array_hashmap_elem_not_finded) {
-                        errmsg("Check that everything is deleted error\n");
-                    }
-                }
-                for (i = 0; i < domains_map_size; i++) {
-                    domain = &domains_random[domain_offsets[i]];
-                    find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
-                    if (find_res != array_hashmap_elem_not_finded) {
-                        errmsg("Check that everything is deleted error\n");
-                    }
-                }
-                if (array_hashmap_now_in_map(domains_map_struct) != 0) {
-                    errmsg("Check that everything is deleted error\n");
-                }
-                /* Check that everything is deleted */
-
-                sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[0]) - 1));
-                printf(print_format, (int32_t)(step * 100));
-                for (i = 0; i < time_index; i++) {
-                    sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[i + 1]) - 1));
-                    printf(print_format, one_op_time_ns[i]);
-                }
-                printf("\n");
-                fflush(stdout);
-
-                array_hashmap_del(&domains_map_struct);
-            }
-            printf("\n");
+    for (thread_count = 1; thread_count <= 8; thread_count++) {
+        domains_map_size = domains_map_size_all - domains_map_size_all % thread_count;
+        printf("Domains count: %d\n", domains_map_size);
+        printf("Threads count: %d\n", thread_count);
+        for (i = 0; i < 8; i++) {
+            printf("%s", print_data[i]);
         }
+        printf("\n");
+
+        for (step = 1.00; step > 0.5; step -= 0.01) {
+            time_index = 0;
+
+            /* Init */
+            domains_map_struct =
+                array_hashmap_init(domains_map_size / step, 1.0, sizeof(domain_data_t));
+            if (domains_map_struct == NULL) {
+                errmsg("Init error\n");
+            }
+
+            array_hashmap_set_func(domains_map_struct, domain_add_hash, domain_add_cmp,
+                                   domain_find_hash, domain_find_cmp, domain_find_hash,
+                                   domain_find_cmp);
+            /* Init */
+
+            /* Add values */
+            RUN_THREAD(add);
+            /* Add values */
+
+            /* Check that all values are inserted */
+            RUN_THREAD(find);
+            /* Check that all values are inserted */
+
+            /* Check that there are no non-inserted elements */
+            RUN_THREAD(no_find);
+            /* Check that there are no non-inserted elements */
+
+            /* Update values */
+            RUN_THREAD(update);
+            /* Update values */
+
+            /* Check the updated values */
+            RUN_THREAD(check_update);
+            /* Check the updated values */
+
+            /* Delete everything individually */
+            RUN_THREAD(del);
+            /* Delete everything individually */
+
+            /* Check that everything is deleted */
+            for (i = 0; i < domains_map_size; i++) {
+                domain = &domains[domain_offsets[i]];
+                find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
+                if (find_res != array_hashmap_elem_not_finded) {
+                    errmsg("Check that everything is deleted error\n");
+                }
+            }
+            for (i = 0; i < domains_map_size; i++) {
+                domain = &domains_random[domain_offsets[i]];
+                find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
+                if (find_res != array_hashmap_elem_not_finded) {
+                    errmsg("Check that everything is deleted error\n");
+                }
+            }
+            if (array_hashmap_now_in_map(domains_map_struct) != 0) {
+                errmsg("Check that everything is deleted error\n");
+            }
+            /* Check that everything is deleted */
+
+            /* Add values */
+            for (i = 0; i < domains_map_size; i++) {
+                add_elem.domain_pos = domain_offsets[i];
+                add_elem.time = SECOND_TEST_TIME;
+
+                add_res = array_hashmap_add_elem(domains_map_struct, &add_elem, NULL,
+                                                 array_hashmap_save_old_func);
+                if (add_res != array_hashmap_elem_added) {
+                    errmsg("Add values error\n");
+                }
+            }
+            /* Add values */
+
+            /* Delete everything at once */
+            TIMER_START();
+            del_elem_by_func_res =
+                array_hashmap_del_elem_by_func(domains_map_struct, domain_del_func);
+            if (del_elem_by_func_res != domains_map_size) {
+                errmsg("Delete everything at once error\n");
+            }
+            TIMER_END();
+            /* Delete everything at once */
+
+            /* Check that everything is deleted */
+            for (i = 0; i < domains_map_size; i++) {
+                domain = &domains[domain_offsets[i]];
+                find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
+                if (find_res != array_hashmap_elem_not_finded) {
+                    errmsg("Check that everything is deleted error\n");
+                }
+            }
+            for (i = 0; i < domains_map_size; i++) {
+                domain = &domains_random[domain_offsets[i]];
+                find_res = array_hashmap_find_elem(domains_map_struct, domain, &find_elem);
+                if (find_res != array_hashmap_elem_not_finded) {
+                    errmsg("Check that everything is deleted error\n");
+                }
+            }
+            if (array_hashmap_now_in_map(domains_map_struct) != 0) {
+                errmsg("Check that everything is deleted error\n");
+            }
+            /* Check that everything is deleted */
+
+            sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[0]) - 1));
+            printf(print_format, (int32_t)(step * 100));
+            for (i = 0; i < time_index; i++) {
+                sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[i + 1]) - 1));
+                printf(print_format, one_op_time_ns[i]);
+            }
+            printf("\n");
+            fflush(stdout);
+
+            array_hashmap_del(&domains_map_struct);
+        }
+        printf("\n");
     }
 
     free(domains);
