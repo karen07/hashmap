@@ -13,6 +13,9 @@
 #define FIRST_TEST_TIME 10
 #define SECOND_TEST_TIME 100
 
+#define MIN_DOMAIN_LEN 50
+#define MAX_DOMAIN_LEN 250
+
 typedef struct domain_data {
     uint32_t domain_pos;
     int32_t time;
@@ -341,12 +344,12 @@ void *del_thread_func(void *arg)
 
 int32_t main(void)
 {
-    FILE *domains_fd = NULL;
     char *domain;
 
     int32_t is_thread_safety;
 
     int64_t domains_file_size = 0;
+    int64_t processed = 0;
 
     int32_t i = 0;
     double step = 0;
@@ -371,6 +374,9 @@ int32_t main(void)
     pthread_t thread;
     void *set_arg;
 
+    int32_t domain_len;
+    char sybmol;
+
     char *print_data[100];
     char print_format[100];
 
@@ -386,18 +392,7 @@ int32_t main(void)
     print_data[7] = "Delete everything at once;";
 
     {
-        domains_fd = fopen("domains", "r");
-        if (domains_fd == NULL) {
-            errmsg("Can't open domains file\n");
-        }
-
-        fseek(domains_fd, 0, SEEK_END);
-        domains_file_size = ftell(domains_fd);
-        fseek(domains_fd, 0, SEEK_SET);
-
-        if (domains_file_size == 0) {
-            errmsg("Empty file\n");
-        }
+        domains_file_size = 20 * 1024 * 1024;
 
         domains = malloc(domains_file_size);
         if (domains == NULL) {
@@ -409,11 +404,24 @@ int32_t main(void)
             errmsg("No free memory for domains_random\n");
         }
 
-        if (fread(domains, domains_file_size, 1, domains_fd) != 1) {
-            errmsg("Can't read domain file\n");
+        srand(time(NULL));
+
+        processed = 0;
+        while (processed < domains_file_size - MAX_DOMAIN_LEN) {
+            domain_len = rand() % (MAX_DOMAIN_LEN - MIN_DOMAIN_LEN) + MIN_DOMAIN_LEN;
+            for (i = 0; i < domain_len - 1; i++) {
+                sybmol = rand() % ('z' - 'a' + 2);
+                if (sybmol == ('z' - 'a' + 1)) {
+                    domains[processed + i] = '.';
+                } else {
+                    domains[processed + i] = sybmol + 'a';
+                }
+            }
+            domains[processed + domain_len - 1] = '\n';
+            processed += domain_len;
         }
 
-        fclose(domains_fd);
+        domains_file_size = processed;
     }
 
     {
