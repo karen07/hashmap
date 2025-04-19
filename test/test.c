@@ -15,6 +15,7 @@
 
 #define MIN_DOMAIN_LEN 50
 #define MAX_DOMAIN_LEN 250
+#define DOMAINS_FILE_SIZE_MB 50
 
 typedef struct domain_data {
     uint32_t domain_pos;
@@ -392,7 +393,7 @@ int32_t main(void)
     print_data[7] = "Delete everything at once;";
 
     {
-        domains_file_size = 20 * 1024 * 1024;
+        domains_file_size = DOMAINS_FILE_SIZE_MB * 1024 * 1024;
 
         domains = malloc(domains_file_size);
         if (domains == NULL) {
