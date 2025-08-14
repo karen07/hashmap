@@ -1,4 +1,5 @@
 #include "array_hashmap.h"
+#include "uthash.h"
 #include <unistd.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -343,6 +344,235 @@ void *del_thread_func(void *arg)
     return NULL;
 }
 
+/* ===== uthash adapter: added code, rest of file unchanged ===== */
+typedef struct uth_node {
+    const char *key;
+    size_t keylen;
+    domain_data_t val;
+    UT_hash_handle hh;
+} uth_node_t;
+
+static uth_node_t *uth_tab = NULL;
+static pthread_rwlock_t uth_rwlock;
+
+static void uth_init(void)
+{
+    uth_tab = NULL;
+    if (pthread_rwlock_init(&uth_rwlock, NULL))
+        errmsg("uthash: rwlock init failed\n");
+}
+
+static void uth_destroy(void)
+{
+    uth_node_t *cur, *tmp;
+    pthread_rwlock_wrlock(&uth_rwlock);
+    HASH_ITER(hh, uth_tab, cur, tmp)
+    {
+        HASH_DEL(uth_tab, cur);
+        free(cur);
+    }
+    pthread_rwlock_unlock(&uth_rwlock);
+    pthread_rwlock_destroy(&uth_rwlock);
+}
+
+static int32_t uth_now_in_map(void)
+{
+    return (int32_t)HASH_COUNT(uth_tab);
+}
+
+static array_hashmap_ret_t uth_add_elem(const domain_data_t *add_elem, on_already_in_t on_in)
+{
+    const char *key = &domains[add_elem->domain_pos];
+    size_t keylen = strlen(key);
+    uth_node_t *n = NULL;
+
+    pthread_rwlock_wrlock(&uth_rwlock);
+    HASH_FIND(hh, uth_tab, key, keylen, n);
+    if (!n) {
+        n = (uth_node_t *)malloc(sizeof(*n));
+        if (!n) {
+            pthread_rwlock_unlock(&uth_rwlock);
+            errmsg("uthash: oom\n");
+        }
+        n->key = key;
+        n->keylen = keylen;
+        n->val = *add_elem;
+        HASH_ADD_KEYPTR(hh, uth_tab, n->key, n->keylen, n);
+        pthread_rwlock_unlock(&uth_rwlock);
+        return array_hashmap_elem_added;
+    } else {
+        if (on_in) {
+            if (on_in == array_hashmap_save_new_func) {
+                n->val = *add_elem;
+            } else {
+                if (on_in(add_elem, &n->val)) {
+                    n->val = *add_elem;
+                }
+            }
+        }
+        pthread_rwlock_unlock(&uth_rwlock);
+        return array_hashmap_elem_already_in;
+    }
+}
+
+static array_hashmap_ret_t uth_find_elem(const char *key, domain_data_t *out)
+{
+    uth_node_t *n = NULL;
+    pthread_rwlock_rdlock(&uth_rwlock);
+    HASH_FIND(hh, uth_tab, key, strlen(key), n);
+    if (!n) {
+        pthread_rwlock_unlock(&uth_rwlock);
+        return array_hashmap_elem_not_finded;
+    }
+    if (out)
+        *out = n->val;
+    pthread_rwlock_unlock(&uth_rwlock);
+    return array_hashmap_elem_finded;
+}
+
+static array_hashmap_ret_t uth_del_elem(const char *key, domain_data_t *out)
+{
+    uth_node_t *n = NULL;
+    pthread_rwlock_wrlock(&uth_rwlock);
+    HASH_FIND(hh, uth_tab, key, strlen(key), n);
+    if (!n) {
+        pthread_rwlock_unlock(&uth_rwlock);
+        return array_hashmap_elem_not_deled;
+    }
+    if (out)
+        *out = n->val;
+    HASH_DEL(uth_tab, n);
+    free(n);
+    pthread_rwlock_unlock(&uth_rwlock);
+    return array_hashmap_elem_deled;
+}
+
+static array_hashmap_deled_count uth_del_by_func(del_func_t fn)
+{
+    uth_node_t *cur, *tmp;
+    int32_t cnt = 0;
+    pthread_rwlock_wrlock(&uth_rwlock);
+    HASH_ITER(hh, uth_tab, cur, tmp)
+    {
+        if (fn(&cur->val)) {
+            HASH_DEL(uth_tab, cur);
+            free(cur);
+            cnt++;
+        }
+    }
+    pthread_rwlock_unlock(&uth_rwlock);
+    return cnt;
+}
+
+/* uthash thread funcs mirror original ones */
+void *uth_add_thread_func(void *arg)
+{
+    int32_t i = 0, add_res, thread_num = (int32_t)(int64_t)arg;
+    domain_data_t add_elem;
+    pthread_barrier_wait(&threads_barrier_start);
+    for (i = (domains_map_size / thread_count) * thread_num;
+         i < (domains_map_size / thread_count) * (thread_num + 1); i++) {
+        add_elem.domain_pos = (uint32_t)domain_offsets[i];
+        add_elem.time = FIRST_TEST_TIME;
+        add_res = uth_add_elem(&add_elem, array_hashmap_save_old_func);
+        if (add_res != array_hashmap_elem_added)
+            errmsg("uthash: Add values error\n");
+    }
+    pthread_barrier_wait(&threads_barrier_end);
+    return NULL;
+}
+
+void *uth_find_thread_func(void *arg)
+{
+    int32_t i = 0, find_res, thread_num = (int32_t)(int64_t)arg;
+    domain_data_t out;
+    char *domain;
+    pthread_barrier_wait(&threads_barrier_start);
+    for (i = (domains_map_size / thread_count) * thread_num;
+         i < (domains_map_size / thread_count) * (thread_num + 1); i++) {
+        domain = &domains[domain_offsets[i]];
+        find_res = uth_find_elem(domain, &out);
+        if (find_res != array_hashmap_elem_finded || out.time != FIRST_TEST_TIME) {
+            errmsg("uthash: Check that all values are inserted error\n");
+        }
+    }
+    pthread_barrier_wait(&threads_barrier_end);
+    return NULL;
+}
+
+void *uth_no_find_thread_func(void *arg)
+{
+    int32_t i = 0, find_res, thread_num = (int32_t)(int64_t)arg;
+    domain_data_t out;
+    char *domain;
+    pthread_barrier_wait(&threads_barrier_start);
+    for (i = (domains_map_size / thread_count) * thread_num;
+         i < (domains_map_size / thread_count) * (thread_num + 1); i++) {
+        domain = &domains_random[domain_offsets[i]];
+        find_res = uth_find_elem(domain, &out);
+        if (find_res != array_hashmap_elem_not_finded) {
+            errmsg("uthash: Check that there are no non-inserted elements error\n");
+        }
+    }
+    pthread_barrier_wait(&threads_barrier_end);
+    return NULL;
+}
+
+void *uth_update_thread_func(void *arg)
+{
+    int32_t i = 0, add_res, thread_num = (int32_t)(int64_t)arg;
+    domain_data_t add_elem;
+    pthread_barrier_wait(&threads_barrier_start);
+    for (i = (domains_map_size / thread_count) * thread_num;
+         i < (domains_map_size / thread_count) * (thread_num + 1); i++) {
+        add_elem.domain_pos = (uint32_t)domain_offsets[i];
+        add_elem.time = SECOND_TEST_TIME;
+        add_res = uth_add_elem(&add_elem, domain_on_already_in);
+        if (add_res != array_hashmap_elem_already_in) {
+            errmsg("uthash: Update values error\n");
+        }
+    }
+    pthread_barrier_wait(&threads_barrier_end);
+    return NULL;
+}
+
+void *uth_check_update_thread_func(void *arg)
+{
+    int32_t i = 0, find_res, thread_num = (int32_t)(int64_t)arg;
+    domain_data_t out;
+    char *domain;
+    pthread_barrier_wait(&threads_barrier_start);
+    for (i = (domains_map_size / thread_count) * thread_num;
+         i < (domains_map_size / thread_count) * (thread_num + 1); i++) {
+        domain = &domains[domain_offsets[i]];
+        find_res = uth_find_elem(domain, &out);
+        if (find_res != array_hashmap_elem_finded || out.time != SECOND_TEST_TIME) {
+            errmsg("uthash: Check the updated values error\n");
+        }
+    }
+    pthread_barrier_wait(&threads_barrier_end);
+    return NULL;
+}
+
+void *uth_del_thread_func(void *arg)
+{
+    int32_t i = 0, del_res, thread_num = (int32_t)(int64_t)arg;
+    domain_data_t out;
+    char *domain;
+    pthread_barrier_wait(&threads_barrier_start);
+    for (i = (domains_map_size / thread_count) * thread_num;
+         i < (domains_map_size / thread_count) * (thread_num + 1); i++) {
+        domain = &domains[domain_offsets[i]];
+        del_res = uth_del_elem(domain, &out);
+        if (del_res != array_hashmap_elem_deled || out.time != SECOND_TEST_TIME) {
+            errmsg("uthash: Delete everything individually error\n");
+        }
+    }
+    pthread_barrier_wait(&threads_barrier_end);
+    return NULL;
+}
+/* ===== end of uthash adapter ===== */
+
 int32_t main(void)
 {
     char *domain;
@@ -383,14 +613,14 @@ int32_t main(void)
 
     int32_t domains_map_size_all = 0;
 
-    print_data[0] = "Fullness;";
-    print_data[1] = "Add values;";
-    print_data[2] = "Check that all values are inserted;";
-    print_data[3] = "Check that there are no non-inserted elements;";
-    print_data[4] = "Update values;";
-    print_data[5] = "Check the updated values;";
-    print_data[6] = "Delete everything individually;";
-    print_data[7] = "Delete everything at once;";
+    print_data[0] = "Load %;";
+    print_data[1] = "Insert;";
+    print_data[2] = "Lookup hit;";
+    print_data[3] = "Lookup miss;";
+    print_data[4] = "Update;";
+    print_data[5] = "Verify update;";
+    print_data[6] = "Delete each;";
+    print_data[7] = "Delete all;";
 
     {
         domains_file_size = DOMAINS_FILE_SIZE_MB * 1024 * 1024;
@@ -467,6 +697,9 @@ int32_t main(void)
         domains_map_size = domains_map_size_all - domains_map_size_all % thread_count;
         printf("Domains count: %d\n", domains_map_size);
         printf("Threads count: %d\n", thread_count);
+        printf("\n");
+
+        printf("array_hashmap\n");
         for (i = 0; i < 8; i++) {
             printf("%s", print_data[i]);
         }
@@ -585,6 +818,102 @@ int32_t main(void)
 
             array_hashmap_del(&domains_map_struct);
         }
+
+        printf("uthash\n");
+        for (i = 0; i < 8; i++) {
+            printf("%s", print_data[i]);
+        }
+        printf("\n");
+
+        for (step = 1.00; step > 0.5; step -= 0.01) {
+            time_index = 0;
+            uth_init();
+
+            /* Add values */
+            RUN_THREAD(uth_add);
+
+            /* Check that all values are inserted */
+            RUN_THREAD(uth_find);
+
+            /* Check that there are no non-inserted elements */
+            RUN_THREAD(uth_no_find);
+
+            /* Update values */
+            RUN_THREAD(uth_update);
+
+            /* Check the updated values */
+            RUN_THREAD(uth_check_update);
+
+            /* Delete everything individually */
+            RUN_THREAD(uth_del);
+
+            /* Check that everything is deleted */
+            for (i = 0; i < domains_map_size; i++) {
+                domain = &domains[domain_offsets[i]];
+                if (uth_find_elem(domain, &find_elem) != array_hashmap_elem_not_finded) {
+                    errmsg("uthash: Check that everything is deleted error\n");
+                }
+            }
+            for (i = 0; i < domains_map_size; i++) {
+                domain = &domains_random[domain_offsets[i]];
+                if (uth_find_elem(domain, &find_elem) != array_hashmap_elem_not_finded) {
+                    errmsg("uthash: Check that everything is deleted error\n");
+                }
+            }
+            if (uth_now_in_map() != 0) {
+                errmsg("uthash: Check that everything is deleted error\n");
+            }
+
+            /* Add values */
+            for (i = 0; i < domains_map_size; i++) {
+                add_elem.domain_pos = (uint32_t)domain_offsets[i];
+                add_elem.time = SECOND_TEST_TIME;
+
+                if (uth_add_elem(&add_elem, array_hashmap_save_old_func) !=
+                    array_hashmap_elem_added) {
+                    errmsg("uthash: Add values error\n");
+                }
+            }
+            /* Add values */
+
+            /* Delete everything at once */
+            TIMER_START();
+            del_elem_by_func_res = uth_del_by_func(domain_del_func);
+            if (del_elem_by_func_res != domains_map_size) {
+                errmsg("uthash: Delete everything at once error\n");
+            }
+            TIMER_END();
+            /* Delete everything at once */
+
+            /* Check that everything is deleted */
+            for (i = 0; i < domains_map_size; i++) {
+                domain = &domains[domain_offsets[i]];
+                if (uth_find_elem(domain, &find_elem) != array_hashmap_elem_not_finded) {
+                    errmsg("uthash: Check that everything is deleted error\n");
+                }
+            }
+            for (i = 0; i < domains_map_size; i++) {
+                domain = &domains_random[domain_offsets[i]];
+                if (uth_find_elem(domain, &find_elem) != array_hashmap_elem_not_finded) {
+                    errmsg("uthash: Check that everything is deleted error\n");
+                }
+            }
+            if (uth_now_in_map() != 0) {
+                errmsg("uthash: Check that everything is deleted error\n");
+            }
+
+            sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[0]) - 1));
+            printf(print_format, (int32_t)(step * 100));
+            for (i = 0; i < time_index; i++) {
+                sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[i + 1]) - 1));
+                printf(print_format, one_op_time_ns[i]);
+            }
+            printf("\n");
+            fflush(stdout);
+
+            uth_destroy();
+        }
+
         printf("\n");
     }
 
