@@ -34,6 +34,29 @@ volatile int32_t thread_count = 0;
 pthread_barrier_t threads_barrier_start;
 pthread_barrier_t threads_barrier_end;
 
+static size_t rss_bytes(void)
+{
+    long page = sysconf(_SC_PAGESIZE);
+    long total_pages = 0, rss_pages = 0;
+    FILE *f = fopen("/proc/self/statm", "r");
+    if (!f)
+        return 0;
+    if (fscanf(f, "%ld %ld", &total_pages, &rss_pages) != 2) {
+        fclose(f);
+        return 0;
+    }
+    fclose(f);
+    return (size_t)rss_pages * (size_t)page;
+}
+
+static void heap_trim(void)
+{
+#if defined(__GLIBC__)
+    extern int malloc_trim(size_t);
+    malloc_trim(0);
+#endif
+}
+
 array_hashmap_hash djb33_hash(const char *s)
 {
     uint32_t h = 5381;
@@ -613,6 +636,10 @@ int32_t main(void)
 
     int32_t domains_map_size_all = 0;
 
+    size_t mem_base = 0;
+    size_t mem_after = 0;
+    size_t mem_array = 0;
+
     print_data[0] = "Load %;";
     print_data[1] = "Insert;";
     print_data[2] = "Lookup hit;";
@@ -705,8 +732,13 @@ int32_t main(void)
         }
         printf("\n");
 
-        for (step = 1.00; step > 0.5; step -= 0.01) {
+        for (step = 1.00; step > 0.95; step -= 0.01) {
             time_index = 0;
+
+            /* Get memory usage */
+            heap_trim();
+            mem_base = rss_bytes();
+            /* Get memory usage */
 
             /* Init */
             domains_map_struct =
@@ -723,6 +755,12 @@ int32_t main(void)
             /* Add values */
             RUN_THREAD(add);
             /* Add values */
+
+            /* Get memory usage */
+            mem_after = rss_bytes();
+            mem_array = mem_after - mem_base;
+            printf("%.2f\n", mem_array / (1024.0 * 1024.0));
+            /* Get memory usage */
 
             /* Check that all values are inserted */
             RUN_THREAD(find);
@@ -807,6 +845,11 @@ int32_t main(void)
             }
             /* Check that everything is deleted */
 
+            /* Destroy */
+            array_hashmap_del(&domains_map_struct);
+            /* Destroy */
+
+            /* Time statistics*/
             sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[0]) - 1));
             printf(print_format, (int32_t)(step * 100));
             for (i = 0; i < time_index; i++) {
@@ -815,8 +858,7 @@ int32_t main(void)
             }
             printf("\n");
             fflush(stdout);
-
-            array_hashmap_del(&domains_map_struct);
+            /* Time statistics*/
         }
 
         printf("uthash\n");
@@ -825,27 +867,47 @@ int32_t main(void)
         }
         printf("\n");
 
-        for (step = 1.00; step > 0.5; step -= 0.01) {
+        for (step = 1.00; step > 0.95; step -= 0.01) {
             time_index = 0;
+
+            /* Get memory usage */
+            heap_trim();
+            mem_base = rss_bytes();
+            /* Get memory usage */
+
+            /* Init */
             uth_init();
+            /* Init */
 
             /* Add values */
             RUN_THREAD(uth_add);
+            /* Add values */
+
+            /* Get memory usage */
+            mem_after = rss_bytes();
+            mem_array = mem_after - mem_base;
+            printf("%.2f\n", mem_array / (1024.0 * 1024.0));
+            /* Get memory usage */
 
             /* Check that all values are inserted */
             RUN_THREAD(uth_find);
+            /* Check that all values are inserted */
 
             /* Check that there are no non-inserted elements */
             RUN_THREAD(uth_no_find);
+            /* Check that there are no non-inserted elements */
 
             /* Update values */
             RUN_THREAD(uth_update);
+            /* Update values */
 
             /* Check the updated values */
             RUN_THREAD(uth_check_update);
+            /* Check the updated values */
 
             /* Delete everything individually */
             RUN_THREAD(uth_del);
+            /* Delete everything individually */
 
             /* Check that everything is deleted */
             for (i = 0; i < domains_map_size; i++) {
@@ -863,6 +925,7 @@ int32_t main(void)
             if (uth_now_in_map() != 0) {
                 errmsg("uthash: Check that everything is deleted error\n");
             }
+            /* Check that everything is deleted */
 
             /* Add values */
             for (i = 0; i < domains_map_size; i++) {
@@ -901,7 +964,13 @@ int32_t main(void)
             if (uth_now_in_map() != 0) {
                 errmsg("uthash: Check that everything is deleted error\n");
             }
+            /* Check that everything is deleted */
 
+            /* Destroy */
+            uth_destroy();
+            /* Destroy */
+
+            /* Time statistics*/
             sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[0]) - 1));
             printf(print_format, (int32_t)(step * 100));
             for (i = 0; i < time_index; i++) {
@@ -910,8 +979,7 @@ int32_t main(void)
             }
             printf("\n");
             fflush(stdout);
-
-            uth_destroy();
+            /* Time statistics*/
         }
 
         printf("\n");
