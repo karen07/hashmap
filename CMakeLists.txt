@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 
 project(hashmap)
 
-add_compile_options(-Wall -Wextra -Werror -Wpedantic -std=gnu89)
+add_compile_options(-Wall -Wextra -Werror -Wpedantic)
 add_link_options()
 include_directories(include)
 
@@ -18,6 +18,7 @@ endif()
 
 file(GLOB SRC_LIB "src/*.c")
 add_library(${PROJECT_NAME} STATIC ${SRC_LIB})
+target_compile_options(hashmap PRIVATE -std=gnu89)
 
 find_program(CLANGFORMAT clang-format)
 if(CLANGFORMAT)
@@ -30,6 +31,7 @@ project(hashmap_test)
 
 file(GLOB SRC "test/*.c")
 add_executable(${PROJECT_NAME} ${SRC})
+target_include_directories(hashmap_test PUBLIC include klib)
 target_link_libraries(${PROJECT_NAME} hashmap)
 
 find_program(CLANGFORMAT clang-format)
