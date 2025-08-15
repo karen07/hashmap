@@ -10,6 +10,7 @@
 #include <time.h>
 #include <stdarg.h>
 #include <pthread.h>
+#include <malloc.h>
 
 #define FIRST_TEST_TIME 10
 #define SECOND_TEST_TIME 100
@@ -44,28 +45,10 @@ typedef struct uth_node {
 uth_node_t *uth_tab = NULL;
 pthread_rwlock_t uth_rwlock;
 
-size_t rss_bytes(void)
+static size_t heap_in_use(void)
 {
-    long page = sysconf(_SC_PAGESIZE);
-    long total_pages = 0, rss_pages = 0;
-    FILE *f = fopen("/proc/self/statm", "r");
-    if (!f) {
-        return 0;
-    }
-    if (fscanf(f, "%ld %ld", &total_pages, &rss_pages) != 2) {
-        fclose(f);
-        return 0;
-    }
-    fclose(f);
-    return (size_t)rss_pages * (size_t)page;
-}
-
-void heap_trim(void)
-{
-#if defined(__GLIBC__)
-    extern int malloc_trim(size_t);
-    malloc_trim(0);
-#endif
+    struct mallinfo2 mi = mallinfo2();
+    return (size_t)mi.uordblks + (size_t)mi.hblkhd;
 }
 
 array_hashmap_hash djb33_hash(const char *s)
@@ -625,7 +608,7 @@ int32_t main(void)
     int32_t domains_map_size_all = 0;
 
     size_t mem_base = 0;
-    size_t mem_array = 0;
+    int64_t mem_array = 0;
 
     print_data[0] = "Load %;";
     print_data[1] = "Mem MB;";
@@ -731,8 +714,7 @@ int32_t main(void)
             time_index = 0;
 
             /* Get memory usage */
-            heap_trim();
-            mem_base = rss_bytes();
+            mem_base = heap_in_use();
             /* Get memory usage */
 
             /* Init */
@@ -752,7 +734,7 @@ int32_t main(void)
             /* Add values */
 
             /* Get memory usage */
-            mem_array = rss_bytes() - mem_base;
+            mem_array = heap_in_use() - mem_base;
             /* Get memory usage */
 
             /* Check that all values are inserted */
@@ -866,8 +848,7 @@ int32_t main(void)
             time_index = 0;
 
             /* Get memory usage */
-            heap_trim();
-            mem_base = rss_bytes();
+            mem_base = heap_in_use();
             /* Get memory usage */
 
             /* Init */
@@ -879,7 +860,7 @@ int32_t main(void)
             /* Add values */
 
             /* Get memory usage */
-            mem_array = rss_bytes() - mem_base;
+            mem_array = heap_in_use() - mem_base;
             /* Get memory usage */
 
             /* Check that all values are inserted */
