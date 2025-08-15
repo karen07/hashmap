@@ -619,23 +619,23 @@ int32_t main(void)
     int32_t domain_len;
     char sybmol;
 
+    int32_t print_format = 0;
     char *print_data[100];
-    char print_format[100];
 
     int32_t domains_map_size_all = 0;
 
     size_t mem_base = 0;
-    size_t mem_after = 0;
     size_t mem_array = 0;
 
     print_data[0] = "Load %;";
-    print_data[1] = "Insert;";
-    print_data[2] = "Lookup hit;";
-    print_data[3] = "Lookup miss;";
-    print_data[4] = "Update;";
-    print_data[5] = "Verify update;";
-    print_data[6] = "Delete each;";
-    print_data[7] = "Delete all;";
+    print_data[1] = "Mem MB;";
+    print_data[2] = "Insert;";
+    print_data[3] = "Lookup hit;";
+    print_data[4] = "Lookup miss;";
+    print_data[5] = "Update;";
+    print_data[6] = "Verify update;";
+    print_data[7] = "Delete each;";
+    print_data[8] = "Delete all;";
 
     srand(time(NULL));
 
@@ -722,7 +722,7 @@ int32_t main(void)
         printf("\n");
 
         printf("array_hashmap\n");
-        for (i = 0; i < 8; i++) {
+        for (i = 0; i < 9; i++) {
             printf("%s", print_data[i]);
         }
         printf("\n");
@@ -752,9 +752,7 @@ int32_t main(void)
             /* Add values */
 
             /* Get memory usage */
-            mem_after = rss_bytes();
-            mem_array = mem_after - mem_base;
-            printf("%.2f\n", mem_array / (1024.0 * 1024.0));
+            mem_array = rss_bytes() - mem_base;
             /* Get memory usage */
 
             /* Check that all values are inserted */
@@ -845,11 +843,13 @@ int32_t main(void)
             /* Destroy */
 
             /* Time statistics*/
-            sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[0]) - 1));
-            printf(print_format, (int32_t)(step * 100));
+            print_format = (int32_t)(strlen(print_data[0]) - 1);
+            printf("%*d;", print_format, (int32_t)(step * 100));
+            print_format = (int32_t)(strlen(print_data[1]) - 1);
+            printf("%*.*f;", print_format, 2, (double)mem_array / (1024.0 * 1024.0));
             for (i = 0; i < time_index; i++) {
-                sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[i + 1]) - 1));
-                printf(print_format, one_op_time_ns[i]);
+                print_format = (int32_t)(strlen(print_data[i + 2]) - 1);
+                printf("%*d;", print_format, one_op_time_ns[i]);
             }
             printf("\n");
             fflush(stdout);
@@ -857,7 +857,7 @@ int32_t main(void)
         }
 
         printf("uthash\n");
-        for (i = 0; i < 8; i++) {
+        for (i = 0; i < 9; i++) {
             printf("%s", print_data[i]);
         }
         printf("\n");
@@ -879,9 +879,7 @@ int32_t main(void)
             /* Add values */
 
             /* Get memory usage */
-            mem_after = rss_bytes();
-            mem_array = mem_after - mem_base;
-            printf("%.2f\n", mem_array / (1024.0 * 1024.0));
+            mem_array = rss_bytes() - mem_base;
             /* Get memory usage */
 
             /* Check that all values are inserted */
@@ -966,11 +964,13 @@ int32_t main(void)
             /* Destroy */
 
             /* Time statistics*/
-            sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[0]) - 1));
-            printf(print_format, (int32_t)(step * 100));
+            print_format = (int32_t)(strlen(print_data[0]) - 1);
+            printf("%*d;", print_format, (int32_t)(step * 100));
+            print_format = (int32_t)(strlen(print_data[1]) - 1);
+            printf("%*.*f;", print_format, 2, (double)mem_array / (1024.0 * 1024.0));
             for (i = 0; i < time_index; i++) {
-                sprintf(print_format, "%%%dd;", (int32_t)(strlen(print_data[i + 1]) - 1));
-                printf(print_format, one_op_time_ns[i]);
+                print_format = (int32_t)(strlen(print_data[i + 2]) - 1);
+                printf("%*d;", print_format, one_op_time_ns[i]);
             }
             printf("\n");
             fflush(stdout);
