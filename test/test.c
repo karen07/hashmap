@@ -45,7 +45,7 @@ typedef struct uth_node {
 uth_node_t *uth_tab = NULL;
 pthread_rwlock_t uth_rwlock;
 
-static size_t heap_in_use(void)
+size_t heap_in_use(void)
 {
     struct mallinfo2 mi = mallinfo2();
     return (size_t)mi.uordblks + (size_t)mi.hblkhd;
