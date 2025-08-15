@@ -727,7 +727,7 @@ int32_t main(void)
         }
         printf("\n");
 
-        for (step = 1.00; step > 0.95; step -= 0.01) {
+        for (step = 1.00; step > 0.5; step -= 0.01) {
             time_index = 0;
 
             /* Get memory usage */
@@ -862,7 +862,7 @@ int32_t main(void)
         }
         printf("\n");
 
-        for (step = 1.00; step > 0.95; step -= 0.01) {
+        for (step = 1.00; step > 0.5; step -= 0.01) {
             time_index = 0;
 
             /* Get memory usage */
