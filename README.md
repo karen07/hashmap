@@ -1,16 +1,16 @@
 # Hashmap
 
-Hashmap is a fixed-size, array-backed hash map for C with caller-defined element types and optional thread safety.
-
-Collisions are represented as index-linked chains inside the same backing array rather than with separately allocated linked-list nodes. The map stores its own internal `int32_t next` metadata next to each user element, while caller-defined hash and comparison callbacks operate only on the user data.
-
-The design targets predictable allocation and fast access in programs where the maximum table size can be chosen in advance. A thread-safe build is available for code that needs concurrent access.
+Hashmap is a fixed-size, array-backed hash table for C with caller-defined element types
+and optional thread safety. Collisions use index-linked chains inside the same array,
+avoiding separate per-element node allocations.
 
 ![Hashmap layout](hashmap.svg)
 
 ## Описание
 
-Hashmap - хеш-таблица фиксированного размера для C с хранением элементов в массиве, пользовательским типом элемента и необязательной потокобезопасностью.
+Hashmap - хеш-таблица фиксированного размера на C с хранением элементов в массиве,
+пользовательским типом данных и необязательной потокобезопасностью. Коллизии разрешаются
+цепочками индексов в том же массиве без отдельных выделений памяти под узлы.
 
 Коллизии представлены цепочками индексов внутри того же массива, а не отдельно выделяемыми узлами связного списка. Таблица сама хранит служебное поле `int32_t next` рядом с каждым пользовательским элементом, поэтому изменять тип данных пользователя не требуется. Функции хеширования и сравнения работают только с пользовательскими данными.
 
